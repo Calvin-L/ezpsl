@@ -1,0 +1,7 @@
+# Stack output
+.stack-work
+*.cabal
+stack.yaml.lock
+
+# TLC output
+states

@@ -1,0 +1,39 @@
+var head = Null;
+
+@entry
+proc enqueue() {
+  var tmp = Null;
+  var success = FALSE;
+  while (~success) {
+    tmp := call read();
+    success := call CAS(tmp, [value |-> self, next |-> tmp]);
+  }
+}
+
+@entry
+proc dequeue() {
+  var tmp = Null;
+  var success = FALSE;
+  while (~success) {
+    tmp := call read();
+    if (tmp /= Null) {
+      success := call CAS(tmp, tmp.next);
+    }
+  }
+}
+
+proc read() {
+  var tmp = head;
+  yield;
+  return tmp;
+}
+
+proc CAS(expected, new) {
+  if (head = expected) {
+    head := new;
+    yield;
+    return TRUE;
+  }
+  yield;
+  return FALSE;
+}

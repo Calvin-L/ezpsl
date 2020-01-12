@@ -1,0 +1,41 @@
+name:       ezpsl
+version:    0.1
+author:     "Calvin Loncaric"
+maintainer: "c.a.loncaric@gmail.com"
+copyright:  "2020 Calvin Loncaric"
+license:    MIT
+
+# Dependencies for everything listed here.  (It's a bit silly to have this
+# separate from the executable-specific dependencies below, but it'll be
+# convenient if we ever split the project into a library/executable or into
+# multiple executables.)
+dependencies:
+  - base
+
+# I am a strong believer in Safe Haskell [1].  Unfortunately, Alex does not
+# generate Safe Haskell code, and I am more strongly attached to Alex than I am
+# to Safe Haskell.  Therefore, sadly, we cannot enable Safe Haskell here.
+# [1]: https://gitlab.haskell.org/ghc/ghc/wikis/safe-haskell
+#
+# default-extensions:
+#   - Safe
+
+executables:
+  ezpsl:
+    source-dirs: src
+    main: Main.hs
+    build-tools:
+      - alex
+      - happy
+    dependencies:
+      - array      # used by Alex & Happy
+      - containers # Data.Map and Data.Set
+      - mtl        # Control.Monad.State
+      - directory  # System.Directory
+      - temporary  # System.IO.Temp
+      - filepath   # System.FilePath.Posix
+    ghc-options:
+      - -Werror
+      - -Wunused-imports
+      - -Wincomplete-patterns
+      - -O2
