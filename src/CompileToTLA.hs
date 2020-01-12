@@ -10,7 +10,7 @@ import Data.SourceLocation (SourceLocation(SourceLocation), line, column)
 import Language.EzPSL.Syntax
 import Names (NamesOp, runNamesOp, freshName)
 import Constants (pcVar, framesVar, retVar, actorVar, selfConstant, undefinedConstant)
-import Misc (join)
+import Misc (join, pad)
 
 
 ezpsl2tla :: Module SourceLocation -> Either String TLACode
@@ -255,10 +255,6 @@ replaceTop :: Exp a -> Exp a -> Exp a
 replaceTop stack newTop =
   let a = getAnnotation stack in
   EBinaryOp a Concat (pop 1 stack) (EMkTuple a [newTop])
-
-pad :: Int -> x -> [x] -> [x]
-pad n x l =
-  take (n - length l) (repeat x) ++ l
 
 sequenceStms :: [Stm SourceLocation] -> Stm SourceLocation
 sequenceStms [] = Skip noLocation
