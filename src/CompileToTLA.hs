@@ -21,13 +21,17 @@ ezpsl2tla m@(Module _ vars procs) = do
     [] -> Left "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
       initialValues <- mapM (\(VarDecl _ v e) -> exp2tla (M.empty) e) vars
-      let {(bigCfg, procedureEntryLabels, transitions) = runNamesOp $ do
-        cfgsAndLabels <- mapM (toCfg env) procs
-        let bigCfg = M.unions $ map fst cfgsAndLabels
+      let {(bigCfg, procedureEntryLabels, transitions, assertions) = runNamesOp $ do
+        compiled <- mapM (toCfg env) procs
+        let (cfgs, asserts, labels) = unzip3 compiled
+        let bigCfg = M.unions cfgs
         transitions <- mapM (uncurry convertTransition) (M.toList bigCfg)
-        return (bigCfg, map snd cfgsAndLabels, transitions)}
+        return (bigCfg, labels, transitions, concat asserts)}
       let pidSets = [p ++ "_calls" | p <- entryProcedureNames]
       let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
+      assertionConditions <- mapM (\(Assertion label kenv e) -> do
+        e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label)) e)
+        exp2tla (initialEnv kenv) e') assertions
       return $ join "\n" $ [
         "CONSTANTS " ++ join ", " (undefinedConstant : pidSets),
         "VARIABLES " ++ join ", " allVars,
@@ -56,6 +60,10 @@ ezpsl2tla m@(Module _ vars procs) = do
         ++ ["    \\/ " ++ label ++ "(_pid)" | (label, _) <- M.toList bigCfg]
         ++ ["    \\/ _halt(_pid)"]
         ++ ["    \\/ _finished"]
+        ++ case assertionConditions of
+          [] -> ["NoAssertionFailures == TRUE"]
+          _ -> ["NoAssertionFailures == \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}:"]
+            ++ ["    /\\ " ++ e | e <- assertionConditions]
 
 namesOfEntryProcedures :: [Procedure a] -> S.Set Id
 namesOfEntryProcedures = (S.fromList) . catMaybes . (map asEntryPoint)
@@ -260,6 +268,11 @@ pop n e =
   let a = getAnnotation e in
   ECall a "SubSeq" [e, EInt a 1, EBinaryOp a Minus (ECall a "Len" [e]) (EInt a n)]
 
+peek :: Exp a -> Exp a
+peek e =
+  let a = getAnnotation e in
+  EIndex a e (ECall a "Len" [e])
+
 replaceTop :: Exp a -> Exp a -> Exp a
 replaceTop stack newTop =
   let a = getAnnotation stack in
@@ -273,7 +286,11 @@ sequenceStms (s : rest) = Seq (getAnnotation s) s (sequenceStms rest)
 entryLabel :: Id -> Label
 entryLabel procName = '_' : procName
 
-toCfg :: KEnv -> Procedure SourceLocation -> NamesOp (CFG SourceLocation, Label)
+-- | Details about an assertion: when a process is at the given label, it is
+--   asserting the given expression.
+data Assertion a = Assertion Label KEnv (Exp a)
+
+toCfg :: KEnv -> Procedure SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
 toCfg env proc =
   let loc = procedureSyntaxAnnotation proc in f (Just (entryLabel (procedureName proc))) Nothing $ [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc] ++ [procedureBody proc, Return loc Nothing]
   where
@@ -289,7 +306,7 @@ toCfg env proc =
     pickLabelIfNoneChosen (Just l) _ = return l
     pickLabelIfNoneChosen Nothing loc = labelFor loc
 
-    f :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, Label)
+    f :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
     f here next [] = f here next [Return noLocation Nothing]
     f here next (Seq _ a b : k) = f here next (a : b : k)
     f here next (Skip _ : k) = f here next k
@@ -306,7 +323,7 @@ toCfg env proc =
         : setMy SimpleAssignDet retVar ret
         : setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc)))
         : setPc SimpleAssignDet (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])
-        : [Done]), label)
+        : [Done]), [], label)
     f here next (CallAndSaveReturnValue loc lval procName args : k) = do
       f here next $ Call loc procName args : Assign loc lval (EVar loc retVar) : k
     f here next (Yield _ : rest@(Await _ _ : _)) = do
@@ -315,16 +332,16 @@ toCfg env proc =
     f here next (s : k) = do
       let loc = getAnnotation s
       label <- pickLabelIfNoneChosen here loc
-      (nextCfg, nextLabel) <- f Nothing next k
-      (rest, body) <- core nextLabel s
+      (nextCfg, assertions2, nextLabel) <- f Nothing next k
+      (rest, assertions1, body) <- core label nextLabel s
       return (M.insert label (innerEnv,
         SimpleAwait (EBinaryOp loc Gt (ECall loc "Len" [myPc]) (EInt loc 0))
         : SimpleAwait (EBinaryOp loc Eq (EIndex loc myPc (ECall loc "Len" [myPc])) (EStr loc label))
         : SimpleAwait (EBinaryOp loc Or (EBinaryOp loc Eq (EVar loc actorVar) (EVar loc undefinedConstant)) (EBinaryOp loc Eq (EVar loc actorVar) (EThreadID loc)))
         : SimpleAssignDet actorVar (EThreadID loc)
-        : body) (M.union rest nextCfg), label)
+        : body) (M.union rest nextCfg), assertions1 ++ assertions2, label)
 
-    rec :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, Label)
+    rec :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
     rec next s = f Nothing (Just next) [s]
 
     myPc = EIndex noLocation (EVar noLocation pcVar) (EThreadID noLocation)
@@ -335,47 +352,46 @@ toCfg env proc =
     goto :: Label -> SimpleInstr SourceLocation
     goto l = setPc SimpleAssignDet (replaceTop myPc (EStr noLocation l))
 
-    core :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [SimpleInstr SourceLocation])
-    core next s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
-    core next s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
-    core next s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
-    core next (Skip _) = do
-      return (M.empty, [goto next])
-    core next (Assert loc _) = do
-      -- TODO: collect assertion failure conditions
-      core next (Skip loc)
-    core next (Yield loc) = do
-      return (M.empty, [clearActor loc, goto next])
-    core next (Either loc stms) = do
+    core :: Label -> Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], [SimpleInstr SourceLocation])
+    core here next s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
+    core here next s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
+    core here next s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
+    core here next (Skip _) = do
+      return (M.empty, [], [goto next])
+    core here next (Assert loc e) = do
+      (cfg, _, code) <- core here next (Skip loc)
+      return (cfg, [Assertion here innerEnv e], code)
+    core here next (Yield loc) = do
+      return (M.empty, [], [clearActor loc, goto next])
+    core here next (Either loc stms) = do
       stms' <- mapM (rec next) stms
-      let cfgs = map fst stms'
-      let labels = map snd stms'
-      return (M.unions cfgs, [setPc SimpleAssignNonDet (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), Done])
-    core next s@(Assign loc lval e) = do
+      let (cfgs, assertions, labels) = unzip3 stms'
+      return (M.unions cfgs, concat assertions, [setPc SimpleAssignNonDet (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), Done])
+    core here next s@(Assign loc lval e) = do
       e' <- fixReads innerEnv e
       (v, v') <- asSimpleAssignment innerEnv lval e'
-      return (M.empty, [SimpleAssignDet v v', goto next])
-    core next (Await loc e) = do
+      return (M.empty, [], [SimpleAssignDet v v', goto next])
+    core here next (Await loc e) = do
       mid <- labelFor loc
       e' <- fixReads innerEnv e
-      return (M.singleton mid (innerEnv, [SimpleAwait e', goto next]), [clearActor loc, goto mid])
-    core next (If loc cond thenBranch elseBranch) = do
+      return (M.singleton mid (innerEnv, [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
+    core here next (If loc cond thenBranch elseBranch) = do
       cond' <- fixReads innerEnv cond
-      (thenCfg, thenEntry) <- rec next thenBranch
-      (elseCfg, elseEntry) <- rec next elseBranch
-      return (M.union thenCfg elseCfg, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
-    core next (While loc cond body) = do
+      (thenCfg, a1, thenEntry) <- rec next thenBranch
+      (elseCfg, a2, elseEntry) <- rec next elseBranch
+      return (M.union thenCfg elseCfg, a1 ++ a2, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
+    core here next (While loc cond body) = do
       cond' <- fixReads innerEnv cond
-      (bodyCfg, bodyEntry) <- rec next body
-      return (bodyCfg, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
-    core next s@(Call loc procName args) = do
+      (bodyCfg, assertions, bodyEntry) <- rec next body
+      return (bodyCfg, assertions, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
+    core here next s@(Call loc procName args) = do
       case M.lookup procName innerEnv of
         Just (KProcedure paramNames) | length paramNames /= length args -> do
           errorAt s $ "Incorrect number of arguments for call to " ++ show procName ++ " (expects " ++ show (length paramNames) ++ ", got " ++ show (length args) ++ ")"
         Just (KProcedure paramNames) -> do
           args' <- mapM (fixReads innerEnv) args
           myFrames <- fixReads innerEnv (EVar noLocation framesVar)
-          return (M.empty, [
+          return (M.empty, [], [
             setMy SimpleAssignDet framesVar (EBinaryOp noLocation Concat myFrames (EMkTuple loc [EMkRecord noLocation (zip paramNames args')])),
             setPc SimpleAssignDet (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (entryLabel procName)]))])
         Just _ -> errorAt s $ "Cannot call variable " ++ show procName
@@ -429,14 +445,14 @@ convertTransition name (kenv, instrs) = do
     steps indent changed env (Done : _) = do
       steps indent changed env []
 
-    initialEnv :: KEnv -> Env
-    initialEnv = M.fromList . catMaybes . map helper . M.toList
-      where
-        helper (v, kind) =
-          case kind of
-            KGlobalVar -> Just (v, v)
-            KPerProcessVar -> Just (v, v)
-            _ -> Nothing
+initialEnv :: KEnv -> Env
+initialEnv = M.fromList . catMaybes . map helper . M.toList
+  where
+    helper (v, kind) =
+      case kind of
+        KGlobalVar -> Just (v, v)
+        KPerProcessVar -> Just (v, v)
+        _ -> Nothing
 
 mkEnv :: Module SourceLocation -> KEnv
 mkEnv (Module _ vars procs) = do

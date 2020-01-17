@@ -86,6 +86,7 @@ Statements:
  - `yield;` - pause the current thread and allow others to run
  - `await e;` - wait for a condition to become true.  There is an implied
    `yield` before each `await`.
+ - `assert e;` - assert that the expression is true
  - `call p(arg, arg, ...)` - call a procedure and ignore its return value
  - `x := call p(arg, arg, ...)` - call a procedure and save its return value.
    Note that expressions are side-effect free; you can only call other
@@ -96,6 +97,16 @@ Statements:
 ## Specifying Correctness Properties, and Details About the TLA+ Output
 
 (More on this soon!)
+
+The compiled TLA+ code always contains an invariant definition named
+`NoAssertionFailures` asserting that no process has failed an `assert`
+statement.  You can tell TLC to check `NoAssertionFailures` as an invariant to
+find assertion failures.
+
+A common pattern for global invariants is to have a singleton "tester" process
+that asserts your invariant and then exits.  This effectively checks the
+invariant in all possible states.  See `examples/Assertions.ezs` for an example
+of this pattern.
 
 ## Comparison to PlusCal
 
@@ -114,6 +125,11 @@ There are a few ways in which EzPSL is better than PlusCal:
  - **EzPSL allows return values from procedures.**  While PlusCal can model
    return values, it is awkward to do so.  EzPSL includes them as a first-class
    primitive.  This can make some programs shorter and easier to read.
+ - **EzPSL allows TLC to show an error trace when an `assert` fails.**  PlusCal
+   assertions cause TLC to crash immediately.  The output shows line and column
+   information, but it does not show the trace that led to the assertion
+   failure.  EzPSL converts assertions into the `NoAssertionFailures` invariant
+   so that TLC can show traces when they fail.
 
 There are also ways in which PlusCal is better than EzPSL:
 

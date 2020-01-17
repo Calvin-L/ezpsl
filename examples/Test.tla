@@ -82,6 +82,7 @@ Next ==
     \/ _main(_pid)
     \/ _halt(_pid)
     \/ _finished
+NoAssertionFailures == TRUE
 \* /include Test.ezs
 
 Invariant ==

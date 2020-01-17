@@ -440,6 +440,7 @@ Next ==
     \/ _read(_pid)
     \/ _halt(_pid)
     \/ _finished
+NoAssertionFailures == TRUE
 \* /include Stack.ezs
 
 =====================

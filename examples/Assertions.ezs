@@ -1,0 +1,13 @@
+var ok = TRUE;
+
+@entry
+proc main() {
+    ok := FALSE;
+    yield;
+    ok := TRUE;
+}
+
+@entry
+proc test() {
+    assert ok;
+}
