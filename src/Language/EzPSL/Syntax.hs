@@ -8,7 +8,7 @@ type Id = String
 type FieldName = String
 
 data UnaryOp
-  = Not | Negate
+  = Not | Negate | UnionAll | AllSubsets
   deriving (Eq, Ord, Show)
 
 data BinaryOp
@@ -21,7 +21,7 @@ data BinaryOp
   -- sequences and strings
   | Concat
   -- sets
-  | In | Subset | Union | Intersection | SetDifference | UnionAll | AllSubsets
+  | In | Subset | Union | Intersection | SetDifference
   -- functions (aka maps)
   | SingletonMapping | LeftBiasedMapUnion
   deriving (Eq, Ord, Show)

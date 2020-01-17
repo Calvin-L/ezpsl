@@ -83,22 +83,29 @@ errorAt e message = do
   fail $ "At line " ++ show (line loc) ++ ", column " ++ show (column loc) ++ ": " ++ message
 
 compileBinaryOp :: BinaryOp -> TLACode -> TLACode -> TLACode
-compileBinaryOp Plus   e1 e2 = e1 ++ " + " ++ e2
-compileBinaryOp Minus  e1 e2 = e1 ++ " - " ++ e2
-compileBinaryOp Times  e1 e2 = e1 ++ " * " ++ e2
-compileBinaryOp Divide e1 e2 = e1 ++ " \\div " ++ e2
-compileBinaryOp Or     e1 e2 = e1 ++ " \\/ " ++ e2
-compileBinaryOp And    e1 e2 = e1 ++ " /\\ " ++ e2
-compileBinaryOp Eq     e1 e2 = e1 ++ " = " ++ e2
-compileBinaryOp Ne     e1 e2 = e1 ++ " /= " ++ e2
-compileBinaryOp Gt     e1 e2 = e1 ++ " > " ++ e2
-compileBinaryOp Ge     e1 e2 = e1 ++ " >= " ++ e2
-compileBinaryOp Lt     e1 e2 = e1 ++ " < " ++ e2
-compileBinaryOp Le     e1 e2 = e1 ++ " <= " ++ e2
-compileBinaryOp Concat e1 e2 = e1 ++ " \\o " ++ e2
-compileBinaryOp SingletonMapping e1 e2 = e1 ++ " :> " ++ e2
-compileBinaryOp LeftBiasedMapUnion e1 e2 = e1 ++ " @@ " ++ e2
-compileBinaryOp op _ _ = error (show op)
+compileBinaryOp Plus               e1 e2 = e1 ++ " + "          ++ e2
+compileBinaryOp Minus              e1 e2 = e1 ++ " - "          ++ e2
+compileBinaryOp Times              e1 e2 = e1 ++ " * "          ++ e2
+compileBinaryOp Divide             e1 e2 = e1 ++ " \\div "      ++ e2
+compileBinaryOp Mod                e1 e2 = e1 ++ " % "          ++ e2
+compileBinaryOp Exp                e1 e2 = e1 ++ " ^ "          ++ e2
+compileBinaryOp Or                 e1 e2 = e1 ++ " \\/ "        ++ e2
+compileBinaryOp And                e1 e2 = e1 ++ " /\\ "        ++ e2
+compileBinaryOp Implies            e1 e2 = e1 ++ " => "         ++ e2
+compileBinaryOp Eq                 e1 e2 = e1 ++ " = "          ++ e2
+compileBinaryOp Ne                 e1 e2 = e1 ++ " /= "         ++ e2
+compileBinaryOp Gt                 e1 e2 = e1 ++ " > "          ++ e2
+compileBinaryOp Ge                 e1 e2 = e1 ++ " >= "         ++ e2
+compileBinaryOp Lt                 e1 e2 = e1 ++ " < "          ++ e2
+compileBinaryOp Le                 e1 e2 = e1 ++ " <= "         ++ e2
+compileBinaryOp Concat             e1 e2 = e1 ++ " \\o "        ++ e2
+compileBinaryOp In                 e1 e2 = e1 ++ " \\in "       ++ e2
+compileBinaryOp Subset             e1 e2 = e1 ++ " \\subseteq " ++ e2
+compileBinaryOp Union              e1 e2 = e1 ++ " \\union "    ++ e2
+compileBinaryOp Intersection       e1 e2 = e1 ++ " \\intersect" ++ e2
+compileBinaryOp SetDifference      e1 e2 = e1 ++ " \\ "         ++ e2
+compileBinaryOp SingletonMapping   e1 e2 = e1 ++ " :> "         ++ e2
+compileBinaryOp LeftBiasedMapUnion e1 e2 = e1 ++ " @@ "         ++ e2
 
 transformBottomUp :: (Monad m, Show a) => (Exp a -> m (Exp a)) -> Exp a -> m (Exp a)
 transformBottomUp f e@(EInt _ _) = f e
@@ -193,6 +200,8 @@ exp2tla env (EUnaryOp _ op e) = do
   case op of
     Not -> return $ "~" ++ e'
     Negate -> return $ "-" ++ e'
+    UnionAll -> return $ "(UNION " ++ e' ++ ")"
+    AllSubsets -> return $ "(SUBSET " ++ e' ++ ")"
 exp2tla env (EBinaryOp _ op e1 e2) = do
   e1' <- exp2tla env e1
   e2' <- exp2tla env e2
