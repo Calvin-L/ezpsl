@@ -87,8 +87,8 @@ Statements:
  - `await e;` - wait for a condition to become true.  There is an implied
    `yield` before each `await`.
  - `assert e;` - assert that the expression is true
- - `call p(arg, arg, ...)` - call a procedure and ignore its return value
- - `x := call p(arg, arg, ...)` - call a procedure and save its return value.
+ - `call p(arg, arg, ...);` - call a procedure and ignore its return value
+ - `x := call p(arg, arg, ...);` - call a procedure and save its return value.
    Note that expressions are side-effect free; you can only call other
    procedures using a `call` statement.
  - `return e;` - return a value.  If the expression is omitted (`return;`),
