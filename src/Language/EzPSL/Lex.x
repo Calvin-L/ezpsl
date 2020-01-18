@@ -25,6 +25,8 @@ tokens :-
        $digit+                         { makeToken $ \s -> Integer (read s) }
        \"(\\\\|\\\"|\\t|\\n|\\f|\\r|[^\\])*\" { makeToken $ \s -> String (read s) }
 
+       \<\<                            { justToken LtLt }
+       \>\>                            { justToken GtGt }
        \=\>                            { justToken LeftArrow }
        \:\=                            { justToken ColonEquals }
        \=                              { justToken Eq }
@@ -49,14 +51,20 @@ tokens :-
        \}                              { justToken CloseBrace }
        \[                              { justToken OpenBracket }
        \]                              { justToken CloseBracket }
+       \:\>                            { justToken ColonGt }
+       \@\@                            { justToken AtAt }
        \:                              { justToken Colon }
        \;                              { justToken SemiColon }
        \.                              { justToken Period }
        \@                              { justToken At }
        \|\-\>                          { justToken PipeDashGt }
-       \\[$alpha]+                     { makeToken $ \s -> SlashOperator (tail s) }
+       \\[$alpha]*                     { makeToken $ \s -> SlashOperator (tail s) }
 
        self                            { justToken Self }
+       UNION                           { justToken Union }
+       SUBSET                          { justToken Subset }
+       CHOOSE                          { justToken Choose }
+
        var                             { justToken Var }
        proc                            { justToken Proc }
        skip                            { justToken Skip }
@@ -83,16 +91,20 @@ data Token
   | Eq | Ne | Lt | Le | Gt | Ge
   | Tilde | Wedge | Vee | LeftArrow
   | Plus | Minus | Times | Divide | Percent | Carat
-  | ColonEquals
+  | ColonEquals | ColonGt | AtAt
   | PipeDashGt
   | SlashOperator String
   -- Other symbols
+  | LtLt | GtGt
   | Comma | Colon | SemiColon | Period | At
   | OpenParen | CloseParen
   | OpenBrace | CloseBrace
   | OpenBracket | CloseBracket
   -- Keywords
-  | Self | Var | Proc
+  | Self
+  | Union | Subset
+  | Choose
+  | Var | Proc
   | Skip
   | Either | Or
   | While

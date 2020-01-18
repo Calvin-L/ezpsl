@@ -17,6 +17,8 @@ import qualified Language.EzPSL.Lex as Lex
     int         { Lex.Integer $$ }
     str         { Lex.String $$ }
 
+    '<<'        { Lex.LtLt }
+    '>>'        { Lex.GtGt }
     '/\\'       { Lex.Wedge }
     '\\/'       { Lex.Vee }
     '->'        { Lex.LeftArrow }
@@ -46,8 +48,22 @@ import qualified Language.EzPSL.Lex as Lex
     ':='        { Lex.ColonEquals }
     '@'         { Lex.At }
     '|->'       { Lex.PipeDashGt }
+    '\\o'         { Lex.SlashOperator "o" }
+    '\\in'        { Lex.SlashOperator "in" }
+    '\\subseteq'  { Lex.SlashOperator "subseteq" }
+    '\\union'     { Lex.SlashOperator "union" }
+    '\\intersect' { Lex.SlashOperator "intersect" }
+    '\\'          { Lex.SlashOperator "" }
+    ':>'        { Lex.ColonGt }
+    '@@'        { Lex.AtAt }
+    '\\E'       { Lex.SlashOperator "E" }
+    '\\A'       { Lex.SlashOperator "A" }
 
     'self'      { Lex.Self }
+    'UNION'     { Lex.Union }
+    'SUBSET'    { Lex.Subset }
+    'CHOOSE'    { Lex.Choose }
+
     'var'       { Lex.Var }
     'proc'      { Lex.Proc }
     'skip'      { Lex.Skip }
@@ -62,16 +78,23 @@ import qualified Language.EzPSL.Lex as Lex
     'call'      { Lex.Call }
     'return'    { Lex.Return }
 
-%left 'exists' 'forall' ','
+%left ':'
+%left '\\E' '\\A' ','
 %left 'then' 'else'
 %right '->'
 %left '\\/'
 %left '/\\'
 %left '=' '/=' '<' '>' '>=' '<='
+%left '\\in'
+%left '\\subseteq'
+%left '@@'
+%left ':>'
+%left '\\union' '\\intersect' '\\'
 %left '+' '-'
 %left '*' '/' '%'
 %left '^'
-%left '~'
+%left '\\o'
+%left '~' '-' 'UNION' 'SUBSET'
 %left '['
 %left '.'
 
@@ -107,10 +130,26 @@ Exp :: { Exp SourceLocation }
   | Exp '/\\' Exp   {% withPosition (\pos -> EBinaryOp pos And $1 $3) }
   | Exp '\\/' Exp   {% withPosition (\pos -> EBinaryOp pos Or $1 $3) }
   | Exp '->'  Exp   {% withPosition (\pos -> EBinaryOp pos Implies $1 $3) }
+  | Exp '\\o'  Exp  {% withPosition (\pos -> EBinaryOp pos Concat $1 $3) }
+  | Exp '\\in'  Exp {% withPosition (\pos -> EBinaryOp pos In $1 $3) }
+  | Exp '\\subseteq'  Exp  {% withPosition (\pos -> EBinaryOp pos Subset $1 $3) }
+  | Exp '\\union'  Exp     {% withPosition (\pos -> EBinaryOp pos Union $1 $3) }
+  | Exp '\\intersect'  Exp {% withPosition (\pos -> EBinaryOp pos Intersection $1 $3) }
+  | Exp '\\'  Exp   {% withPosition (\pos -> EBinaryOp pos SetDifference $1 $3) }
+  | Exp ':>'  Exp   {% withPosition (\pos -> EBinaryOp pos SingletonMapping $1 $3) }
+  | Exp '@@'  Exp   {% withPosition (\pos -> EBinaryOp pos LeftBiasedMapUnion $1 $3) }
   | '~' Exp         {% withPosition (\pos -> EUnaryOp pos Not $2)}
+  | '-' Exp         {% withPosition (\pos -> EUnaryOp pos Negate $2)}
+  | 'UNION' Exp     {% withPosition (\pos -> EUnaryOp pos UnionAll $2)}
+  | 'SUBSET' Exp    {% withPosition (\pos -> EUnaryOp pos AllSubsets $2)}
   | Exp '.' var     {% withPosition (\pos -> EGetField pos $1 $3)}
   | Exp '[' Exp ']' {% withPosition (\pos -> EIndex pos $1 $3)}
+  | '{' ExpList '}' {% withPosition (\pos -> EMkSet pos $2) }
+  | '<<' ExpList '>>' {% withPosition (\pos -> EMkTuple pos $2) }
   | '[' Fields ']'  {% withPosition (\pos -> EMkRecord pos $2) }
+  | '\\E'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Exists $2 $4 $6) }
+  | '\\A'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Forall $2 $4 $6) }
+  | 'CHOOSE' var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Choose $2 $4 $6) }
   | '(' Exp ')'     {  $2 }
 
 ExpList :: { [Exp SourceLocation] }
