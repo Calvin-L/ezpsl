@@ -3,7 +3,7 @@ module Misc where
 -- builtin
 import Data.List (intercalate)
 import System.IO (hPutStr)
-import System.Exit (exitWith, ExitCode(ExitFailure))
+import System.Exit (exitWith, ExitCode(ExitSuccess, ExitFailure))
 
 -- 3rd party
 import System.Directory (renamePath)
@@ -54,7 +54,9 @@ relativeTo path directory =
 die :: Int -> String -> IO t
 die code message = do
   putStrLn message
-  exitWith (ExitFailure code)
+  exitWith $ case code of
+    0 -> ExitSuccess
+    _ -> ExitFailure code
 
 -- | Add copies an element to the front of a list until the list's length is at
 --   least the given amount.
