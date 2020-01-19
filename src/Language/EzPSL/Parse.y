@@ -150,6 +150,7 @@ Exp :: { Exp SourceLocation }
   | '{' ExpList '}' {% withPosition (\pos -> EMkSet pos $2) }
   | '<<' ExpList '>>' {% withPosition (\pos -> EMkTuple pos $2) }
   | '[' Fields ']'  {% withPosition (\pos -> EMkRecord pos $2) }
+  | '[' var '\\in' Exp '|->' Exp ']' {% withPosition (\pos -> EMkFunc pos $2 $4 $6) }
   | '\\E'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Exists $2 $4 $6) }
   | '\\A'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Forall $2 $4 $6) }
   | 'CHOOSE' var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Choose $2 $4 $6) }
