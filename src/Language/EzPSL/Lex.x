@@ -64,6 +64,9 @@ tokens :-
        UNION                           { justToken Union }
        SUBSET                          { justToken Subset }
        CHOOSE                          { justToken Choose }
+       IF                              { justToken IF }
+       THEN                            { justToken THEN }
+       ELSE                            { justToken ELSE }
 
        var                             { justToken Var }
        proc                            { justToken Proc }
@@ -103,6 +106,7 @@ data Token
   -- Keywords
   | Self
   | Union | Subset
+  | IF | THEN | ELSE
   | Choose
   | Var | Proc
   | Skip

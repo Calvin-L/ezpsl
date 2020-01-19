@@ -63,6 +63,9 @@ import qualified Language.EzPSL.Lex as Lex
     'UNION'     { Lex.Union }
     'SUBSET'    { Lex.Subset }
     'CHOOSE'    { Lex.Choose }
+    'IF'        { Lex.IF }
+    'THEN'      { Lex.THEN }
+    'ELSE'      { Lex.ELSE }
 
     'var'       { Lex.Var }
     'proc'      { Lex.Proc }
@@ -80,7 +83,7 @@ import qualified Language.EzPSL.Lex as Lex
 
 %left ':'
 %left '\\E' '\\A' ','
-%left 'then' 'else'
+%left 'THEN' 'ELSE'
 %right '->'
 %left '\\/'
 %left '/\\'
@@ -150,6 +153,7 @@ Exp :: { Exp SourceLocation }
   | '\\E'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Exists $2 $4 $6) }
   | '\\A'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Forall $2 $4 $6) }
   | 'CHOOSE' var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Choose $2 $4 $6) }
+  | 'IF' Exp 'THEN' Exp 'ELSE' Exp  {% withPosition (\pos -> ECond pos $2 $4 $6) }
   | '(' Exp ')'     {  $2 }
 
 MaybeArgs :: { Maybe [Exp SourceLocation] }
