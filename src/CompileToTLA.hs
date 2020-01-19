@@ -171,6 +171,11 @@ fixReads :: (Monad m) => KEnv -> Exp SourceLocation -> m (Exp SourceLocation)
 fixReads kenv =
   transformBottomUp (\e ->
     case e of
+      ECall _ f _ ->
+        case M.lookup f kenv of
+          Just (KProcedure _) -> do
+            errorAt e $ "Illegal call to " ++ show f ++ "; procedure calls must be in `call` statements."
+          _ -> return e
       EVar a v ->
         case M.lookup v kenv of
           Just KPerProcessVar -> do

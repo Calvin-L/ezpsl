@@ -113,7 +113,7 @@ VarDecl :: { VarDecl SourceLocation }
 Exp :: { Exp SourceLocation }
   : int             {% withPosition (\pos -> EInt pos $1) }
   | str             {% withPosition (\pos -> EStr pos $1) }
-  | var             {% withPosition (\pos -> EVar pos $1) }
+  | var MaybeArgs   {% withPosition (\pos -> case $2 of { Nothing -> EVar pos $1; Just args -> ECall pos $1 args }) }
   | 'self'          {% withPosition EThreadID }
   | Exp '<'   Exp   {% withPosition (\pos -> EBinaryOp pos Lt $1 $3) }
   | Exp '>'   Exp   {% withPosition (\pos -> EBinaryOp pos Gt $1 $3) }
@@ -151,6 +151,13 @@ Exp :: { Exp SourceLocation }
   | '\\A'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Forall $2 $4 $6) }
   | 'CHOOSE' var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Choose $2 $4 $6) }
   | '(' Exp ')'     {  $2 }
+
+MaybeArgs :: { Maybe [Exp SourceLocation] }
+  :      { Nothing }
+  | Args { Just $1 }
+
+Args :: { [Exp SourceLocation] }
+  : '(' ExpList ')' { $2 }
 
 ExpList :: { [Exp SourceLocation] }
   :          { [] }
@@ -212,8 +219,8 @@ BasicStm :: { Stm SourceLocation }
   | 'assert' Exp ';'                           {% withPosition (\pos -> Assert pos $2) }
   | 'skip' ';'                                 {% withPosition Skip }
   | 'yield' ';'                                {% withPosition Yield }
-  | 'call' var '(' ExpList ')' ';'             {% withPosition (\pos -> Call pos $2 $4) }
-  | LValue ':=' 'call' var '(' ExpList ')' ';' {% withPosition (\pos -> CallAndSaveReturnValue pos $1 $4 $6) }
+  | 'call' var Args ';'                        {% withPosition (\pos -> Call pos $2 $3) }
+  | LValue ':=' 'call' var Args ';'            {% withPosition (\pos -> CallAndSaveReturnValue pos $1 $4 $5) }
   | 'return' ';'                               {% withPosition (\pos -> Return pos Nothing) }
   | 'return' Exp ';'                           {% withPosition (\pos -> Return pos (Just $2)) }
   | 'while' '(' Exp ')' Block                  {% withPosition (\pos -> While pos $3 $5) }
