@@ -311,6 +311,16 @@ toCfg env proc =
     pickLabelIfNoneChosen (Just l) _ = return l
     pickLabelIfNoneChosen Nothing loc = labelFor loc
 
+    -- | Common instructions that wait for
+    --    1. the PC to be correct
+    --    2. the actor to be correct
+    commonPrefix :: SourceLocation -> Label -> [SimpleInstr SourceLocation]
+    commonPrefix a label = [
+      SimpleAwait (EBinaryOp a Gt (ECall a "Len" [myPc]) (EInt a 0)),
+      SimpleAwait (EBinaryOp a Eq (EIndex a myPc (ECall a "Len" [myPc])) (EStr a label)),
+      SimpleAwait (EBinaryOp a Or (EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)) (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))),
+      SimpleAssignDet actorVar (EThreadID a)]
+
     f :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
     f here next [] = f here next [Return noLocation Nothing]
     f here next (Seq _ a b : k) = f here next (a : b : k)
@@ -321,11 +331,8 @@ toCfg env proc =
         Just e -> fixReads innerEnv e
         Nothing -> return (EVar loc undefinedConstant)
       return (M.singleton label (innerEnv,
-        SimpleAwait (EBinaryOp loc Gt (ECall loc "Len" [myPc]) (EInt loc 0))
-        : SimpleAwait (EBinaryOp loc Eq (EIndex loc myPc (ECall loc "Len" [myPc])) (EStr loc label))
-        : SimpleAwait (EBinaryOp loc Or (EBinaryOp loc Eq (EVar loc actorVar) (EVar loc undefinedConstant)) (EBinaryOp loc Eq (EVar loc actorVar) (EThreadID loc)))
-        : SimpleAssignDet actorVar (EThreadID loc)
-        : setMy SimpleAssignDet retVar ret
+        commonPrefix loc label ++
+        setMy SimpleAssignDet retVar ret
         : setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc)))
         : setPc SimpleAssignDet (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])
         : [Done]), [], label)
@@ -339,12 +346,7 @@ toCfg env proc =
       label <- pickLabelIfNoneChosen here loc
       (nextCfg, assertions2, nextLabel) <- f Nothing next k
       (rest, assertions1, body) <- core label nextLabel s
-      return (M.insert label (innerEnv,
-        SimpleAwait (EBinaryOp loc Gt (ECall loc "Len" [myPc]) (EInt loc 0))
-        : SimpleAwait (EBinaryOp loc Eq (EIndex loc myPc (ECall loc "Len" [myPc])) (EStr loc label))
-        : SimpleAwait (EBinaryOp loc Or (EBinaryOp loc Eq (EVar loc actorVar) (EVar loc undefinedConstant)) (EBinaryOp loc Eq (EVar loc actorVar) (EThreadID loc)))
-        : SimpleAssignDet actorVar (EThreadID loc)
-        : body) (M.union rest nextCfg), assertions1 ++ assertions2, label)
+      return (M.insert label (innerEnv, commonPrefix loc label ++ body) (M.union rest nextCfg), assertions1 ++ assertions2, label)
 
     rec :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
     rec next s = f Nothing (Just next) [s]
@@ -379,7 +381,7 @@ toCfg env proc =
     core here next (Await loc e) = do
       mid <- labelFor loc
       e' <- fixReads innerEnv e
-      return (M.singleton mid (innerEnv, [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
+      return (M.singleton mid (innerEnv, commonPrefix loc mid ++ [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
     core here next (If loc cond thenBranch elseBranch) = do
       cond' <- fixReads innerEnv cond
       (thenCfg, a1, thenEntry) <- rec next thenBranch
