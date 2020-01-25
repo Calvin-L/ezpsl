@@ -258,7 +258,6 @@ data SimpleInstr a
   = SimpleAwait (Exp a)
   | SimpleAssignDet Id (Exp a)
   | SimpleAssignNonDet Id (Exp a)
-  | Done
   deriving (Show)
 
 type Label = String
@@ -331,11 +330,12 @@ toCfg env proc =
         Just e -> fixReads innerEnv e
         Nothing -> return (EVar loc undefinedConstant)
       return (M.singleton label (innerEnv,
-        commonPrefix loc label ++
-        setMy SimpleAssignDet retVar ret
-        : setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc)))
-        : setPc SimpleAssignDet (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])
-        : [Done]), [], label)
+          commonPrefix loc label ++ [
+          setMy SimpleAssignDet retVar ret,
+          setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc))),
+          setPc SimpleAssignDet (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])]),
+        [],
+        label)
     f here next (CallAndSaveReturnValue loc lval procName args : k) = do
       f here next $ Call loc procName args : Assign loc lval (EVar loc retVar) : k
     f here next (Yield _ : rest@(Await _ _ : _)) = do
@@ -373,7 +373,7 @@ toCfg env proc =
     core here next (Either loc stms) = do
       stms' <- mapM (rec next) stms
       let (cfgs, assertions, labels) = unzip3 stms'
-      return (M.unions cfgs, concat assertions, [setPc SimpleAssignNonDet (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), Done])
+      return (M.unions cfgs, concat assertions, [setPc SimpleAssignNonDet (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels])])
     core here next s@(Assign loc lval e) = do
       e' <- fixReads innerEnv e
       (v, v') <- asSimpleAssignment innerEnv lval e'
@@ -449,8 +449,6 @@ convertTransition name (kenv, instrs) = do
       tmp <- freshName "_tmp"
       rest' <- steps (increaseIndent indent) changed env (SimpleAssignDet v (EVar (getAnnotation e) tmp) : rest)
       return $ (indent ++ "/\\ \\E " ++ tmp ++ " \\in " ++ set ++ ":") : rest'
-    steps indent changed env (Done : _) = do
-      steps indent changed env []
 
 initialEnv :: KEnv -> Env
 initialEnv = M.fromList . catMaybes . map helper . M.toList
