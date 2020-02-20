@@ -378,6 +378,12 @@ toCfg env proc =
       e' <- fixReads innerEnv e
       (v, v') <- asSimpleAssignment innerEnv lval e'
       return (M.empty, [], [SimpleAssignDet v v', goto next])
+    core here next s@(NondeterministicAssign loc lval set pred) = do
+      x <- freshName "_choice"
+      set' <- fixReads innerEnv set
+      (v, v') <- asSimpleAssignment innerEnv lval (EVar loc x)
+      pred' <- fixReads innerEnv pred
+      return (M.empty, [], [SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait pred', goto next])
     core here next (Await loc e) = do
       mid <- labelFor loc
       e' <- fixReads innerEnv e
@@ -433,8 +439,8 @@ convertTransition name (kenv, instrs) = do
   where
     steps :: String -> S.Set Id -> Env -> [SimpleInstr SourceLocation] -> NamesOp [TLACode]
     steps indent changed env [] = return $
-      [indent ++ "/\\ " ++ v ++ "' = " ++ v' | (v, v') <- M.toList env, v `S.member` changed] ++
-      [indent ++ "/\\ UNCHANGED " ++ v | (v, _) <- M.toList env, not (v `S.member` changed)]
+      [indent ++ "/\\ " ++ v ++ "' = " ++ v' | (v, v') <- M.toList env, v `M.member` kenv,      v `S.member` changed] ++
+      [indent ++ "/\\ UNCHANGED " ++ v       | (v, _ ) <- M.toList env, v `M.member` kenv, not (v `S.member` changed)]
     steps indent changed env (SimpleAwait e : rest) = do
       e' <- exp2tla env e
       rest' <- steps indent changed env rest

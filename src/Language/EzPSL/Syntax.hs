@@ -58,6 +58,7 @@ data LValue a
 data Stm a
   = Skip   a
   | Assign a (LValue a) (Exp a)
+  | NondeterministicAssign a (LValue a) (Exp a) (Exp a)
   | If     a (Exp a) (Stm a) (Stm a)
   | Either a [Stm a]
   | While  a (Exp a) (Stm a)
@@ -113,6 +114,7 @@ instance Annotated Exp where
 instance Annotated Stm where
   getAnnotation (Skip   a)       = a
   getAnnotation (Assign a _ _)   = a
+  getAnnotation (NondeterministicAssign a _ _ _) = a
   getAnnotation (If     a _ _ _) = a
   getAnnotation (Either a _)     = a
   getAnnotation (While  a _ _)   = a

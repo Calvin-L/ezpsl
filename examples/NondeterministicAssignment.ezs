@@ -1,0 +1,8 @@
+var map = <<>>;
+
+@entry
+proc main() {
+    var x = 0;
+    pick x \in {1,2,3} : x > 1;
+    map[x] := TRUE;
+}

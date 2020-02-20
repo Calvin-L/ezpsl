@@ -79,6 +79,9 @@ the special constant `self` refers to the current thread ID.
 Statements:
 
  - `x := e;` - assignment
+ - `pick x \in set : predicate;` - nondeterministic choice.  You may omit the
+   `: predicate` part, in which case the predicate defaults to `TRUE`.  If the
+   set is empty or if no element matches the predicate, then the process hangs.
  - `if (e) { s } else { s }` - if-then-else
  - `while (e) { s }` - looping
  - `either { s } or { s }` - nondeterministic branching

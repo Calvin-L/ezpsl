@@ -71,6 +71,7 @@ tokens :-
        var                             { justToken Var }
        proc                            { justToken Proc }
        skip                            { justToken Skip }
+       pick                            { justToken Pick }
        either                          { justToken Either }
        or                              { justToken Or }
        while                           { justToken While }
@@ -110,6 +111,7 @@ data Token
   | Choose
   | Var | Proc
   | Skip
+  | Pick
   | Either | Or
   | While
   | Await

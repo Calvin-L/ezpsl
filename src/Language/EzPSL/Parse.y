@@ -69,6 +69,7 @@ import qualified Language.EzPSL.Lex as Lex
 
     'var'       { Lex.Var }
     'proc'      { Lex.Proc }
+    'pick'      { Lex.Pick }
     'skip'      { Lex.Skip }
     'either'    { Lex.Either }
     'or'        { Lex.Or }
@@ -226,6 +227,8 @@ BasicStm :: { Stm SourceLocation }
   | 'yield' ';'                                {% withPosition Yield }
   | 'call' var Args ';'                        {% withPosition (\pos -> Call pos $2 $3) }
   | LValue ':=' 'call' var Args ';'            {% withPosition (\pos -> CallAndSaveReturnValue pos $1 $4 $5) }
+  | 'pick' LValue '\\in' Exp ';'               {% withPosition (\pos -> NondeterministicAssign pos $2 $4 (EVar pos "TRUE")) }
+  | 'pick' LValue '\\in' Exp ':' Exp ';'       {% withPosition (\pos -> NondeterministicAssign pos $2 $4 $6) }
   | 'return' ';'                               {% withPosition (\pos -> Return pos Nothing) }
   | 'return' Exp ';'                           {% withPosition (\pos -> Return pos (Just $2)) }
   | 'while' '(' Exp ')' Block                  {% withPosition (\pos -> While pos $3 $5) }
