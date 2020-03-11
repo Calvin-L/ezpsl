@@ -1,0 +1,24 @@
+# This configuration was copied (and modified) from:
+#   https://raw.githubusercontent.com/commercialhaskell/stack/stable/doc/travis-simple.yml
+
+# Do not choose a language; we provide our own build tools.
+language: generic
+
+# Caching so the next build will be fast too.
+cache:
+  directories:
+    - $HOME/.stack
+
+before_install:
+  # Download and unpack the stack executable
+  - mkdir -p ~/.local/bin
+  - travis_retry curl -Lf https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  - export PATH=$HOME/.local/bin:$PATH
+
+install:
+  # Build dependencies
+  - stack --no-terminal test --only-dependencies
+
+script:
+  # Build the package, its tests, and its docs and run the tests
+  - stack --no-terminal test --haddock --no-haddock-deps
