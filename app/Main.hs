@@ -6,7 +6,7 @@ import System.Environment (getArgs)
 import System.IO (withFile, IOMode(ReadMode), hGetContents)
 import System.FilePath.Posix (takeExtension, takeDirectory)
 
-import Language.EzPSL.Parse (parse)
+import Language.EzPSL.Parse (parseModule)
 import CompileToTLA (TLACode, ezpsl2tla)
 import Misc (join, atomicReplaceFile, relativeTo, die)
 import Constants (startOfFileInclude, endOfFileInclude)
@@ -49,7 +49,7 @@ splitTLACode code = do
         Just i -> OneInclude (unlines (take (idx+1) ls)) fileName (unlines (drop i rest))
 
 string2tla :: String -> Either String TLACode
-string2tla s = parse s >>= ezpsl2tla
+string2tla s = parseModule s >>= ezpsl2tla
 
 file2tla :: FilePath -> IO TLACode
 file2tla fileName = do

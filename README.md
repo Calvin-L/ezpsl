@@ -16,6 +16,7 @@ source:
     git clone https://github.com/Calvin-L/ezpsl.git
     cd ezpsl
     stack build
+    stack test # optional!
     cp `stack exec -- which ezpsl` .
 
 Usage:

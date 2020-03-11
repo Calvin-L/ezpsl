@@ -1,12 +1,13 @@
 {
-module Language.EzPSL.Parse (parse) where
+module Language.EzPSL.Parse (parseModule, parseExpression) where
 
 import Data.SourceLocation (SourceLocation, line, column)
 import Language.EzPSL.Syntax
 import qualified Language.EzPSL.Lex as Lex
 }
 
-%name doParse Program
+%name doParseModule Program
+%name doParseExpression Exp
 %tokentype { Lex.Token }
 %monad { Lex.Alex }
 %error { parseError }
@@ -267,7 +268,10 @@ reportError msg = do
 parseError :: Lex.Token -> Lex.Alex a
 parseError token = reportError $ "unexpected " ++ show token
 
-parse :: String -> Either String (Module SourceLocation)
-parse s = Lex.runAlex s doParse
+parseModule :: String -> Either String (Module SourceLocation)
+parseModule s = Lex.runAlex s doParseModule
+
+parseExpression :: String -> Either String (Exp SourceLocation)
+parseExpression s = Lex.runAlex s doParseExpression
 
 }
