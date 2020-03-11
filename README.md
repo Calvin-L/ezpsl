@@ -61,7 +61,7 @@ Example file:
 
     @entry
     proc main() {
-        v1 = helper(v2);
+        v1 := call helper(v2);
     }
 
 Comments begin with `\*` and are completely ignored by the tool.
