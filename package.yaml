@@ -5,12 +5,16 @@ maintainer: "c.a.loncaric@gmail.com"
 copyright:  "2020 Calvin Loncaric"
 license:    MIT
 
-# Dependencies for everything listed here.  (It's a bit silly to have this
-# separate from the executable-specific dependencies below, but it'll be
-# convenient if we ever split the project into a library/executable or into
-# multiple executables.)
+# Common dependencies for everything listed here.
 dependencies:
   - base
+
+# Common GHC flags for everything listed here.
+ghc-options:
+  - -Werror
+  - -Wunused-imports
+  - -Wincomplete-patterns
+  - -O2
 
 # I am a strong believer in Safe Haskell [1].  Unfortunately, Alex does not
 # generate Safe Haskell code, and I am more strongly attached to Alex than I am
@@ -20,22 +24,26 @@ dependencies:
 # default-extensions:
 #   - Safe
 
+# There isn't much point in separating the library and the executable code...
+# except for the fact that any tests we write can only test the library code,
+# never the application code.
+library:
+  source-dirs: src
+  build-tools:
+    - alex
+    - happy
+  dependencies:
+    - array      # used by Alex & Happy
+    - containers # Data.Map and Data.Set
+    - mtl        # Control.Monad.State
+    - directory  # System.Directory
+    - temporary  # System.IO.Temp
+    - filepath   # System.FilePath.Posix
+
 executables:
   ezpsl:
-    source-dirs: src
+    source-dirs: app
     main: Main.hs
-    build-tools:
-      - alex
-      - happy
     dependencies:
-      - array      # used by Alex & Happy
-      - containers # Data.Map and Data.Set
-      - mtl        # Control.Monad.State
-      - directory  # System.Directory
-      - temporary  # System.IO.Temp
+      - ezpsl      # the library in the `src` folder
       - filepath   # System.FilePath.Posix
-    ghc-options:
-      - -Werror
-      - -Wunused-imports
-      - -Wincomplete-patterns
-      - -O2
