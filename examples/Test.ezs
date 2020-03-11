@@ -1,8 +1,8 @@
-var x = 0;
+var x := 0;
 
 @entry
 proc main() {
-  var tmp = x;
+  var tmp := x;
   yield;
   x := tmp + 1;
 }

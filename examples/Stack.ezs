@@ -1,9 +1,9 @@
-var head = Null;
+var head := Null;
 
 @entry
 proc enqueue() {
-  var tmp = Null;
-  var success = FALSE;
+  var tmp := Null;
+  var success := FALSE;
   while (~success) {
     tmp := call read();
     success := call CAS(tmp, [value |-> self, next |-> tmp]);
@@ -12,8 +12,8 @@ proc enqueue() {
 
 @entry
 proc dequeue() {
-  var tmp = Null;
-  var success = FALSE;
+  var tmp := Null;
+  var success := FALSE;
   while (~success) {
     tmp := call read();
     if (tmp /= Null) {
@@ -23,7 +23,7 @@ proc dequeue() {
 }
 
 proc read() {
-  var tmp = head;
+  var tmp := head;
   yield;
   return tmp;
 }

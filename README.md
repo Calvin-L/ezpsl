@@ -48,14 +48,14 @@ Example file:
     \* ----------------
     \* Global variables
 
-    var v1 = 2;
-    var v2 = 3;
+    var v1 := 2;
+    var v2 := 3;
 
     \* ----------------
     \* Procedures
 
     proc helper(x) {
-        var tmp = x + 1;
+        var tmp := x + 1;
         return tmp;
     }
 

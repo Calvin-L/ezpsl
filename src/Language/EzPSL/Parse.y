@@ -112,7 +112,7 @@ VarDecls :: { [VarDecl SourceLocation] }
   | VarDecl VarDecls { $1 : $2 }
 
 VarDecl :: { VarDecl SourceLocation }
-  : 'var' var '=' Exp ';' {% withPosition (\pos -> VarDecl pos $2 $4) }
+  : 'var' var ':=' Exp ';' {% withPosition (\pos -> VarDecl pos $2 $4) }
 
 Exp :: { Exp SourceLocation }
   : int             {% withPosition (\pos -> EInt pos $1) }

@@ -1,4 +1,4 @@
-var ok = TRUE;
+var ok := TRUE;
 
 @entry
 proc main() {
