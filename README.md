@@ -100,7 +100,48 @@ Statements:
  - `return e;` - return a value.  If the expression is omitted (`return;`),
    then a special undefined constant gets returned.
 
-## Specifying Correctness Properties, and Details About the TLA+ Output
+## Details About the TLA+ Output
+
+EzPSL's TLA+ output _always_ requires that your specification `EXTENDS` the
+following built-in modules:
+
+ - `Sequences` (for modeling the call stack)
+ - `Integers` (for comparing sequence lengths)
+ - `TLC` (for constructing maps using the `:>` and `@@` operators, and for
+   the `symmetry` operator)
+
+The generated TLA+ declares the following constants:
+
+ - `PROC_calls` for each `@entry` procedure, where `PROC` is the procedure
+   name.  During model checking, each of these should be a set of model values
+   used as process IDs.
+ - `_Undefined`, a special token that is used for a number of purposes.  During
+   model checking, it should be set to a unique model value.
+
+The generated TLA+ declares the following variables:
+
+ - One variable for each global `var` in the code, with the exact same names
+ - A number of internal variables whose names begin with underscores:
+   - `_pc` (a stack of program counter values for each process)
+   - `_frames` (a stack of "call frames" for each process, containing local variables)
+   - `_ret` (the most recently returned value for each process)
+   - `_actor` (the thread that is currently acting, or `_Undefined` if any
+     thread may act)
+
+The generated TLA+ declares the following operators:
+
+ - `Init` (the initial state predicate)
+ - `Next` (the next action predicate)
+ - `symmetry` (a symmetry set consisting of all process IDs)
+ - `vars` (a tuple of all declared variables, including internal variables)
+ - `NoAssertionFailures` (an invariant stating that no process fails an
+   `assert`)
+ - Any number of helper operators whose names are prefixed with underscores.
+
+If you are curious for more details about the TLA+ output, look through the
+compiled TLA+ output in the `examples` folder.
+
+## Specifying Correctness Properties
 
 (More on this soon!)
 
