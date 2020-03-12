@@ -1,0 +1,9 @@
+var x := TRUE;
+
+@entry
+proc main() {
+  while (TRUE) {
+    x := ~x;
+  }
+  assert FALSE;
+}

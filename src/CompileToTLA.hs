@@ -399,7 +399,7 @@ toCfg env proc =
       return (M.union thenCfg elseCfg, a1 ++ a2, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
     core here next (While loc cond body) = do
       cond' <- fixReads innerEnv cond
-      (bodyCfg, assertions, bodyEntry) <- rec next body
+      (bodyCfg, assertions, bodyEntry) <- rec here body
       return (bodyCfg, assertions, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
     core here next s@(Call loc procName args) = do
       case M.lookup procName innerEnv of
