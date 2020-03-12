@@ -30,7 +30,7 @@ ezpsl2tla m@(Module _ vars procs) = do
       let pidSets = [p ++ "_calls" | p <- entryProcedureNames]
       let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
       assertionConditions <- mapM (\(Assertion label kenv e) -> do
-        e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label)) e)
+        e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation And (EBinaryOp noLocation Ne (EVar noLocation pcVar) (EMkTuple noLocation [])) (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label))) e)
         exp2tla (initialEnv kenv) e') assertions
       return $ join "\n" $ [
         "CONSTANTS " ++ join ", " (undefinedConstant : pidSets),
