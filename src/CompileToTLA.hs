@@ -321,8 +321,14 @@ toCfg env proc =
       SimpleAssignDet actorVar (EThreadID a)]
 
     f :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-    f here next [] = f here next [Return noLocation Nothing]
-    f here next (Seq _ a b : k) = f here next (a : b : k)
+    f here Nothing [] = do
+      -- no `next` label: return from this call
+      f here Nothing [Return noLocation Nothing]
+    f here (Just next) [] = do
+      -- nothing to do, but there is a `next` label: goto next
+      return (M.empty, [], next)
+    f here next (Seq _ a b : k) = do
+      f here next (a : b : k)
     f here next (Skip _ : k) = f here next k
     f here _ (Return loc maybeRet : _) = do
       label <- pickLabelIfNoneChosen here loc
@@ -363,11 +369,9 @@ toCfg env proc =
     core here next s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
     core here next s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
     core here next s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
-    core here next (Skip _) = do
-      return (M.empty, [], [goto next])
+    core here next s@(Skip _) = errorAt s $ "internal bug: skip case is supposed to be handled elsewhere"
     core here next (Assert loc e) = do
-      (cfg, _, code) <- core here next (Skip loc)
-      return (cfg, [Assertion here innerEnv e], code)
+      return (M.empty, [Assertion here innerEnv e], [goto next])
     core here next (Yield loc) = do
       return (M.empty, [], [clearActor loc, goto next])
     core here next (Either loc stms) = do
