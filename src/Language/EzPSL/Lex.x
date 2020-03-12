@@ -23,7 +23,7 @@ tokens :-
        $white+                         ;
        \\\*.*$                         ;
        $digit+                         { makeToken $ \s -> Integer (read s) }
-       \"(\\\\|\\\"|\\t|\\n|\\f|\\r|[^\\])*\" { makeToken $ \s -> String (read s) }
+       \"(\\\\|\\\"|\\t|\\n|\\f|\\r|[^\\\"])*\" { makeToken $ \s -> String (read s) }
 
        \<\<                            { justToken LtLt }
        \>\>                            { justToken GtGt }

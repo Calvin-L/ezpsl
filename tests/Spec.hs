@@ -12,6 +12,9 @@ main = hspec $ do
     it "allows multiple strings on one line" $ do
       fmap stripLocations (parseExpression "\"hello\" \\o \"goodbye\"") `shouldBe`
         Right (EBinaryOp () Concat (EStr () "hello") (EStr () "goodbye"))
+    it "allows multiple strings in a record definition" $ do
+      fmap stripLocations (parseExpression "[id |-> \"id\", status |-> \"new\"]") `shouldBe`
+        Right (EMkRecord () [("id", EStr () "id"), ("status", EStr () "new")])
     it "has correct associativity for + and *" $ do
       fmap stripLocations (parseExpression "1 + 2 * 3") `shouldBe`
         Right (EBinaryOp () Plus (EInt () 1) (EBinaryOp () Times (EInt () 2) (EInt () 3)))
