@@ -108,7 +108,7 @@ following built-in modules:
  - `Sequences` (for modeling the call stack)
  - `Integers` (for comparing sequence lengths)
  - `TLC` (for constructing maps using the `:>` and `@@` operators, and for
-   the `symmetry` operator)
+   the `Permutations` operator)
 
 The generated TLA+ declares the following constants:
 
@@ -168,8 +168,10 @@ of this pattern.
 You might want to write your own invariants by hand.  The "tester" pattern
 increases your system's state space, which is one good reason to write
 invariants by hand.  You probably do not want to check your invariants while a
-process is in the middle of an atomic block.  To do so, place the invariant's
-definition after the compiled output and write your invariant in the form
+process is in the middle of an atomic block.
+
+To write your own invariants by hand, place the invariant's definition after
+the compiled output and write your invariant in the form
 
     MyInvariant ==
         (_actor = _Undefined) => (PROPERTY YOU CARE ABOUT)
