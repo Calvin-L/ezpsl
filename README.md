@@ -138,22 +138,54 @@ The generated TLA+ declares the following operators:
    `assert`)
  - Any number of helper operators whose names are prefixed with underscores.
 
+**NOTE: The generated TLA+ system uses one step per statement, meaning that a
+logically atomic block of code goes through multiple TLA+ states.  This has
+implications for specifying correctness properties (see below).**
+
 If you are curious for more details about the TLA+ output, look through the
 compiled TLA+ output in the `examples` folder.
 
 ## Specifying Correctness Properties
 
-(More on this soon!)
+Because there are multiple TLA+ transitions per atomic block in its compiled
+output, EzPSL makes it slightly harder to write correctness properties.  This
+section provides some tips.
+
+### No Assertion Failures
 
 The compiled TLA+ code always contains an invariant definition named
 `NoAssertionFailures` asserting that no process has failed an `assert`
 statement.  You can tell TLC to check `NoAssertionFailures` as an invariant to
 find assertion failures.
 
+### Global Invariants
+
 A common pattern for global invariants is to have a singleton "tester" process
 that asserts your invariant and then exits.  This effectively checks the
 invariant in all possible states.  See `examples/Assertions.ezs` for an example
 of this pattern.
+
+You might want to write your own invariants by hand.  The "tester" pattern
+increases your system's state space, which is one good reason to write
+invariants by hand.  You probably do not want to check your invariants while a
+process is in the middle of an atomic block.  To do so, place the invariant's
+definition after the compiled output and write your invariant in the form
+
+    MyInvariant ==
+        (_actor = _Undefined) => (PROPERTY YOU CARE ABOUT)
+
+Requiring the actor to be undefined means that your invariant will only be
+checked in the initial state and immediately after a process yields or
+finishes.
+
+### Refinement
+
+(more on this soon!)
+
+### Deadlock
+
+EzPSL generates TLA+ that supports deadlock checking.  Deadlock checking is
+enabled by default in TLC.
 
 ## Comparison to PlusCal
 
@@ -180,6 +212,8 @@ There are a few ways in which EzPSL is better than PlusCal:
 
 There are also ways in which PlusCal is better than EzPSL:
 
+ - **EzPSL makes it harder to write correctness properties.** See the notes
+   in "Specifying Correctness Properties" above for more details.
  - **EzPSL produces longer error traces.**  To support larger atomic blocks,
    EzPSL produces longer error traces than PlusCal when model checking finds a
    violation.  Sometimes this is an advantage; the longer error traces include
