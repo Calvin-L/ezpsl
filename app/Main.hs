@@ -48,18 +48,14 @@ splitTLACode code = do
         Nothing -> OneInclude (unlines (take (idx+1) ls)) fileName (unlines (endLine : rest))
         Just i -> OneInclude (unlines (take (idx+1) ls)) fileName (unlines (drop i rest))
 
-string2tla :: String -> Either String TLACode
+string2tla :: (MonadFail m) => String -> m TLACode
 string2tla s = parseModule s >>= ezpsl2tla
 
 file2tla :: FilePath -> IO TLACode
 file2tla fileName = do
   withFile fileName ReadMode (\f -> do
     text <- hGetContents f
-    case string2tla text of
-      Left err -> do
-        die 3 err
-      Right result -> do
-        return result)
+    string2tla text)
 
 legalExtensions :: [String]
 legalExtensions = ["tla", "ezs"]

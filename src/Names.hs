@@ -1,10 +1,35 @@
 module Names (NamesOp, runNamesOp, freshName) where
 
+import Control.Monad (liftM, ap)
 import qualified Data.Map as M
-import Control.Monad.State (State, get, put, evalState)
 
 type NamesState = M.Map String Int
-type NamesOp t = State NamesState t
+newtype NamesOp t = NamesOp (NamesState -> Either String (NamesState, t))
+
+instance Functor NamesOp where
+  fmap = liftM
+
+instance Applicative NamesOp where
+  pure x = NamesOp $ \st -> Right (st, x)
+  (<*>) = ap
+
+instance Monad NamesOp where
+  return = pure
+  (>>=) (NamesOp op) f = NamesOp $ \st ->
+    case op st of
+      Left err -> Left err
+      Right (st', val) ->
+        let NamesOp f' = f val in
+        f' st'
+
+instance MonadFail NamesOp where
+  fail = NamesOp . const . Left
+
+get :: NamesOp NamesState
+get = NamesOp $ \st -> Right (st, st)
+
+put :: NamesState -> NamesOp ()
+put st = NamesOp $ const $ Right (st, ())
 
 findName :: String -> (String -> Bool) -> String
 findName x predicate
@@ -29,5 +54,8 @@ freshName hint = do
       put (M.insert hint (count + 1) m)
       return $ hint ++ "_" ++ show count
 
-runNamesOp :: NamesOp t -> t
-runNamesOp op = evalState op (M.empty)
+runNamesOp :: (MonadFail m) => NamesOp t -> m t
+runNamesOp (NamesOp op) =
+  case op $ M.empty of
+    Left err -> fail err
+    Right (_, out) -> return out

@@ -268,8 +268,11 @@ reportError msg = do
 parseError :: Lex.Token -> Lex.Alex a
 parseError token = reportError $ "unexpected " ++ show token
 
-parseModule :: String -> Either String (Module SourceLocation)
-parseModule s = Lex.runAlex s doParseModule
+parseModule :: (MonadFail m) => String -> m (Module SourceLocation)
+parseModule s =
+  case Lex.runAlex s doParseModule of
+    Left err -> fail err
+    Right out -> return out
 
 parseExpression :: String -> Either String (Exp SourceLocation)
 parseExpression s = Lex.runAlex s doParseExpression

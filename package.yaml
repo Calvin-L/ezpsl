@@ -35,7 +35,6 @@ library:
   dependencies:
     - array      # used by Alex & Happy
     - containers # Data.Map and Data.Set
-    - mtl        # Control.Monad.State
     - directory  # System.Directory
     - temporary  # System.IO.Temp
     - filepath   # System.FilePath.Posix

@@ -13,20 +13,20 @@ import Constants (pcVar, framesVar, retVar, actorVar, selfConstant, undefinedCon
 import Misc (join, pad)
 
 
-ezpsl2tla :: Module SourceLocation -> Either String TLACode
+ezpsl2tla :: (MonadFail m) => Module SourceLocation -> m TLACode
 ezpsl2tla m@(Module _ vars procs) = do
   let env = mkEnv m
   let entryProcedureNames = S.toList (namesOfEntryProcedures procs)
   case entryProcedureNames of
-    [] -> Left "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
+    [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
       initialValues <- mapM (\(VarDecl _ v e) -> exp2tla (M.empty) e) vars
-      let {(bigCfg, procedureEntryLabels, transitions, assertions) = runNamesOp $ do
+      (bigCfg, procedureEntryLabels, transitions, assertions) <- runNamesOp $ do
         compiled <- mapM (toCfg env) procs
         let (cfgs, asserts, labels) = unzip3 compiled
         let bigCfg = M.unions cfgs
         transitions <- mapM (uncurry convertTransition) (M.toList bigCfg)
-        return (bigCfg, labels, transitions, concat asserts)}
+        return (bigCfg, labels, transitions, concat asserts)
       let pidSets = [p ++ "_calls" | p <- entryProcedureNames]
       let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
       assertionConditions <- mapM (\(Assertion label kenv e) -> do
@@ -85,7 +85,7 @@ data Kind
 type KEnv = M.Map Id Kind
 type Env = M.Map Id TLACode
 
-errorAt :: (Monad m, Annotated loc) => loc SourceLocation -> String -> m t
+errorAt :: (MonadFail m, Annotated loc) => loc SourceLocation -> String -> m t
 errorAt e message = do
   let loc = getAnnotation e
   fail $ "At line " ++ show (line loc) ++ ", column " ++ show (column loc) ++ ": " ++ message
@@ -167,7 +167,7 @@ transformBottomUp f (EQuant loc q arg domain predicate) = do
   predicate' <- transformBottomUp f predicate
   f (EQuant loc q arg domain' predicate')
 
-fixReads :: (Monad m) => KEnv -> Exp SourceLocation -> m (Exp SourceLocation)
+fixReads :: (MonadFail m) => KEnv -> Exp SourceLocation -> m (Exp SourceLocation)
 fixReads kenv =
   transformBottomUp (\e ->
     case e of
@@ -419,7 +419,7 @@ lval2exp (LVar a v) = EVar a v
 lval2exp (LIndex a lval i) = EIndex a (lval2exp lval) i
 lval2exp (LField a lval f) = EGetField a (lval2exp lval) f
 
-asSimpleAssignment :: (Monad m) => KEnv -> LValue SourceLocation -> Exp SourceLocation -> m (Id, Exp SourceLocation)
+asSimpleAssignment :: (MonadFail m) => KEnv -> LValue SourceLocation -> Exp SourceLocation -> m (Id, Exp SourceLocation)
 asSimpleAssignment env lval@(LVar a v) e =
   case M.lookup v env of
     Just KGlobalVar -> return (v, e)
