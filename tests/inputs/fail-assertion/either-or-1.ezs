@@ -1,0 +1,22 @@
+\* CFG CONSTANT main_calls = {A}
+\* CFG CONSTANT check_calls = {B}
+
+var x := 0;
+
+@entry
+proc main() {
+    x := 0;
+    either {
+        x := 1;
+    } or {
+        x := 2;
+    } or {
+        x := 3;
+    }
+    x := 4;
+}
+
+@entry
+proc check() {
+    assert x /= 1;
+}

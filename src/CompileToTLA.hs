@@ -339,7 +339,7 @@ toCfg env proc =
           commonPrefix loc label ++ [
           setMy SimpleAssignDet retVar ret,
           setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc))),
-          setPc SimpleAssignDet (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])]),
+          setPc (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])]),
         [],
         label)
     f here next (CallAndSaveReturnValue loc lval procName args : k) = do
@@ -359,11 +359,11 @@ toCfg env proc =
 
     myPc = EIndex noLocation (EVar noLocation pcVar) (EThreadID noLocation)
     setMy f var val = f var (EExcept noLocation (EVar noLocation var) (EThreadID noLocation) val)
-    setPc f = setMy f pcVar
+    setPc = setMy SimpleAssignDet pcVar
     clearActor loc = SimpleAssignDet actorVar (EVar loc undefinedConstant)
 
     goto :: Label -> SimpleInstr SourceLocation
-    goto l = setPc SimpleAssignDet (replaceTop myPc (EStr noLocation l))
+    goto l = setPc (replaceTop myPc (EStr noLocation l))
 
     core :: Label -> Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], [SimpleInstr SourceLocation])
     core here next s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
@@ -375,9 +375,10 @@ toCfg env proc =
     core here next (Yield loc) = do
       return (M.empty, [], [clearActor loc, goto next])
     core here next (Either loc stms) = do
+      newPc <- freshName "_newPc"
       stms' <- mapM (rec next) stms
       let (cfgs, assertions, labels) = unzip3 stms'
-      return (M.unions cfgs, concat assertions, [setPc SimpleAssignNonDet (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels])])
+      return (M.unions cfgs, concat assertions, [SimpleAssignNonDet newPc (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), setPc (EVar loc newPc)])
     core here next s@(Assign loc lval e) = do
       e' <- fixReads innerEnv e
       (v, v') <- asSimpleAssignment innerEnv lval e'
@@ -396,11 +397,11 @@ toCfg env proc =
       cond' <- fixReads innerEnv cond
       (thenCfg, a1, thenEntry) <- rec next thenBranch
       (elseCfg, a2, elseEntry) <- rec next elseBranch
-      return (M.union thenCfg elseCfg, a1 ++ a2, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
+      return (M.union thenCfg elseCfg, a1 ++ a2, [setPc (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
     core here next (While loc cond body) = do
       cond' <- fixReads innerEnv cond
       (bodyCfg, assertions, bodyEntry) <- rec here body
-      return (bodyCfg, assertions, [setPc SimpleAssignDet (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
+      return (bodyCfg, assertions, [setPc (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
     core here next s@(Call loc procName args) = do
       case M.lookup procName innerEnv of
         Just (KProcedure paramNames) | length paramNames /= length args -> do
@@ -410,7 +411,7 @@ toCfg env proc =
           myFrames <- fixReads innerEnv (EVar noLocation framesVar)
           return (M.empty, [], [
             setMy SimpleAssignDet framesVar (EBinaryOp noLocation Concat myFrames (EMkTuple loc [EMkRecord noLocation (zip paramNames args')])),
-            setPc SimpleAssignDet (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (entryLabel procName)]))])
+            setPc (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (entryLabel procName)]))])
         Just _ -> errorAt s $ "Cannot call variable " ++ show procName
         Nothing -> errorAt s $ "There is no procedure named " ++ show procName
 
