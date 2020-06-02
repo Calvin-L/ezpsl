@@ -143,6 +143,17 @@ transformBottomUp f (EMkTuple loc args) = do
 transformBottomUp f (EMkSet loc args) = do
   args' <- mapM (transformBottomUp f) args
   f (EMkSet loc args')
+transformBottomUp f (ESetComprehension loc e clauses) = do
+  e' <- transformBottomUp f e
+  clauses' <- mapM transformClause clauses
+  f (ESetComprehension loc e' clauses')
+  where
+    transformClause (SCMember loc x set) = do
+      set' <- transformBottomUp f set
+      return (SCMember loc x set')
+    transformClause (SCFilter loc p) = do
+      p' <- transformBottomUp f p
+      return (SCFilter loc p')
 transformBottomUp f (EMkRecord loc fields) = do
   fields' <- mapM (\(fieldName, e) -> do
     e' <- transformBottomUp f e
@@ -198,6 +209,17 @@ exp2tla env (EThreadID _) =
 exp2tla env (EMkSet _ es) = do
   es' <- mapM (exp2tla env) es
   return $ "{" ++ join ", " es' ++ "}"
+exp2tla initialEnv (ESetComprehension loc e clauses) = loop initialEnv clauses
+  where
+    loop env [] = exp2tla env (EMkSet loc [e])
+    loop env (SCFilter _ p : rest) = do
+      p' <- exp2tla env p
+      rest' <- loop env rest
+      return $ "(IF " ++ p' ++ " THEN " ++ rest' ++ " ELSE {})"
+    loop env (SCMember _ x set : rest) = do
+      set' <- exp2tla env set
+      rest' <- loop (M.insert x x env) rest
+      return $ "(UNION {" ++ rest' ++ " : " ++ x ++ " \\in " ++ set' ++ "})"
 exp2tla env (EMkTuple _ es) = do
   es' <- mapM (exp2tla env) es
   return $ "<<" ++ join ", " es' ++ ">>"

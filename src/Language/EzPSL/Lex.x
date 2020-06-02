@@ -27,6 +27,7 @@ tokens :-
 
        \<\<                            { justToken LtLt }
        \>\>                            { justToken GtGt }
+       \<\-                            { justToken LtDash }
        \=\>                            { justToken LeftArrow }
        \:\=                            { justToken ColonEquals }
        \=                              { justToken Eq }
@@ -100,6 +101,7 @@ data Token
   | PipeDashGt
   | SlashOperator String
   -- Other symbols
+  | LtDash
   | LtLt | GtGt
   | Comma | Colon | SemiColon | Period | At
   | OpenParen | CloseParen

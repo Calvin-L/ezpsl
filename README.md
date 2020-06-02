@@ -77,7 +77,14 @@ The `@entry` flag indicates that a procedure is an "entry point", where threads
 may start execution.  There must be one or more `@entry` procedures.
 
 Expressions: a subset of TLA+ including integers and records.  Additionally,
-the special constant `self` refers to the current thread ID.
+the special constant `self` refers to the current thread ID.  EzPSL also has a
+different set-comprehension syntax than TLA+.  For example:
+
+ - `{ f[x] : x <- S, x > 0 }` - find all positive elements of `S` and
+   construct a set by applying `f` to each one.
+
+The TLA+ comprehensions `{x \in S : P}` and `{e : x \in S}` are not supported,
+since they can be expressed using the general set-comprehension primitive.
 
 Statements:
 

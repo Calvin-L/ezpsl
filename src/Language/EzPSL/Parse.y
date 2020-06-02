@@ -23,6 +23,7 @@ import qualified Language.EzPSL.Lex as Lex
     '>>'          { (Lex.GtGt, _) }
     '/\\'         { (Lex.Wedge, _) }
     '\\/'         { (Lex.Vee, _) }
+    '<-'          { (Lex.LtDash, _) }
     '=>'          { (Lex.LeftArrow, _) }
     '='           { (Lex.Eq, _) }
     '/='          { (Lex.Ne, _) }
@@ -86,7 +87,7 @@ import qualified Language.EzPSL.Lex as Lex
     'call'        { (Lex.Call, _) }
     'return'      { (Lex.Return, _) }
 
-%left ':'
+%left ':' '<-'
 %left '\\E' '\\A' ','
 %left 'THEN' 'ELSE'
 %right '=>'
@@ -164,6 +165,7 @@ Exp :: { Exp SourceLocation }
   | Exp '.' Var                      { EGetField (tokenLocation $2) $1 (fst $3) }
   | Exp '[' Exp ']'                  { EIndex (tokenLocation $2) $1 $3 }
   | '{' ExpList '}'                  { EMkSet (tokenLocation $1) $2 }
+  | '{' Exp ':' SetCmpClauses1 '}'   { ESetComprehension (tokenLocation $1) $2 $4 }
   | '<<' ExpList '>>'                { EMkTuple (tokenLocation $1) $2 }
   | '[' Fields ']'                   { EMkRecord (tokenLocation $1) $2 }
   | '[' Var '\\in' Exp '|->' Exp ']' { EMkFunc (tokenLocation $1) (fst $2) $4 $6 }
@@ -198,6 +200,14 @@ Fields1 :: { [(FieldName, Exp SourceLocation)] }
 
 Field :: { (FieldName, Exp SourceLocation) }
   : Var '|->' Exp { (fst $1, $3) }
+
+SetCmpClauses1 :: { [SetComprehensionClause SourceLocation] }
+  : SetCmpClause                    { [$1] }
+  | SetCmpClause ',' SetCmpClauses1 { $1 : $3 }
+
+SetCmpClause :: { SetComprehensionClause SourceLocation }
+  : Var '<-' Exp { SCMember (tokenLocation $2) (fst $1) $3 }
+  | Exp          { SCFilter (getAnnotation $1) $1 }
 
 Procedures :: { [Procedure SourceLocation] }
   : { [] }

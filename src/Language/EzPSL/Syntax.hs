@@ -44,9 +44,15 @@ data Exp a
   | EMkRecord a [(FieldName, Exp a)]
   | EGetField a (Exp a) FieldName
   | EMkSet    a [Exp a]
+  | ESetComprehension a (Exp a) [SetComprehensionClause a]
   | EMkTuple  a [Exp a]
   | ECond     a (Exp a) (Exp a) (Exp a)
   | EQuant    a Quantifier Id (Exp a) (Exp a)
+  deriving (Eq, Ord, Show, Functor)
+
+data SetComprehensionClause a
+  = SCMember a Id (Exp a)
+  | SCFilter a (Exp a)
   deriving (Eq, Ord, Show, Functor)
 
 data LValue a
@@ -107,6 +113,7 @@ instance Annotated Exp where
   getAnnotation (EMkRecord a _)       = a
   getAnnotation (EGetField a _ _)     = a
   getAnnotation (EMkSet    a _)       = a
+  getAnnotation (ESetComprehension a _ _) = a
   getAnnotation (EMkTuple  a _)       = a
   getAnnotation (ECond     a _ _ _)   = a
   getAnnotation (EQuant    a _ _ _ _) = a

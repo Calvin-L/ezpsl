@@ -1,0 +1,13 @@
+\* CFG CONSTANT main_calls = {A, B}
+
+@entry
+proc main() {
+    assert {1} = {1};
+    assert {1 : FALSE} = {};
+    assert {1 : TRUE} = {1};
+    assert {1 : x <- {FALSE}, x} = {};
+    assert {1 : x <- {1,2}} = {1};
+    assert {x : x <- {1,2}} = {1,2};
+    assert {x : x <- {1,2}, x > 1} = {2};
+    assert {x : x <- {1,2,3}, y <- {x+1}, y > 1} = {1,2,3};
+}
