@@ -1,0 +1,9 @@
+\* CFG CONSTANT main_calls = {A, B}
+
+@entry
+proc main() {
+    assert 1 \in {1, 2};
+    assert 3 \notin {1, 2};
+    assert {} \subseteq {1, 2};
+    assert {1,2} \subseteq {1, 2};
+}

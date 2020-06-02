@@ -52,6 +52,7 @@ import qualified Language.EzPSL.Lex as Lex
     '|->'         { (Lex.PipeDashGt, _) }
     '\\o'         { (Lex.SlashOperator "o", _) }
     '\\in'        { (Lex.SlashOperator "in", _) }
+    '\\notin'     { (Lex.SlashOperator "notin", _) }
     '\\subseteq'  { (Lex.SlashOperator "subseteq", _) }
     '\\union'     { (Lex.SlashOperator "union", _) }
     '\\intersect' { (Lex.SlashOperator "intersect", _) }
@@ -92,7 +93,7 @@ import qualified Language.EzPSL.Lex as Lex
 %left '\\/'
 %left '/\\'
 %left '=' '/=' '<' '>' '>=' '<='
-%left '\\in'
+%left '\\in' '\\notin'
 %left '\\subseteq'
 %left '@@'
 %left ':>'
@@ -151,6 +152,7 @@ Exp :: { Exp SourceLocation }
   | Exp '->'  Exp                    { EBinaryOp (tokenLocation $2) Implies $1 $3 }
   | Exp '\\o'  Exp                   { EBinaryOp (tokenLocation $2) Concat $1 $3 }
   | Exp '\\in'  Exp                  { EBinaryOp (tokenLocation $2) In $1 $3 }
+  | Exp '\\notin' Exp                { EUnaryOp (tokenLocation $2) Not (EBinaryOp (tokenLocation $2) In $1 $3) }
   | Exp '\\subseteq'  Exp            { EBinaryOp (tokenLocation $2) Subset $1 $3 }
   | Exp '\\union'  Exp               { EBinaryOp (tokenLocation $2) Union $1 $3 }
   | Exp '\\intersect'  Exp           { EBinaryOp (tokenLocation $2) Intersection $1 $3 }
