@@ -10,10 +10,16 @@ cache:
     - $HOME/.stack
 
 before_install:
-  # Download and unpack the stack executable
-  - mkdir -p ~/.local/bin
-  - travis_retry curl -Lf https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  - mkdir -p ~/.local/{bin,lib}
   - export PATH=$HOME/.local/bin:$PATH
+  # Download and unpack the TLA+ command-line tools
+  - travis_retry curl -Lf https://github.com/tlaplus/tlaplus/releases/download/v1.7.0/tla2tools.jar -o ~/.local/lib/tla2tools.jar
+  - echo '#!/bin/bash'                                >  ~/.local/bin/tlc2
+  - echo 'export CLASSPATH="$HOME/lib/tla2tools.jar"' >> ~/.local/bin/tlc2
+  - echo 'exec java -XX:+UseParallelGC tlc2.TLC "$@"' >> ~/.local/bin/tlc2
+  - chmod +x ~/.local/bin/tlc2
+  # Download and unpack the stack executable
+  - travis_retry curl -Lf https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
   # Build dependencies
