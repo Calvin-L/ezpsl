@@ -119,15 +119,12 @@ VarDecl :: { VarDecl SourceLocation }
   : 'var' Var ':=' Exp ';' { VarDecl (tokenLocation $1) (fst $2) $4 }
 
 Var :: { (Id, SourceLocation) }
-Var
   : var { case $1 of { (Lex.Identifier x, loc) -> (x, loc); _ -> error "impossible" } }
 
 Int :: { (Integer, SourceLocation) }
-Int
   : int { case $1 of { (Lex.Integer x, loc) -> (x, loc); _ -> error "impossible" } }
 
 StringLiteral :: { (String, SourceLocation) }
-StringLiteral
   : str { case $1 of { (Lex.String x, loc) -> (x, loc); _ -> error "impossible" } }
 
 Exp :: { Exp SourceLocation }
