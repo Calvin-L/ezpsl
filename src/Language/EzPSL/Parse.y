@@ -1,6 +1,7 @@
 {
 module Language.EzPSL.Parse (parseModule, parseExpression) where
 
+import Data.Annotated (getAnnotation)
 import Data.SourceLocation (SourceLocation, line, column)
 import Language.EzPSL.Syntax
 import qualified Language.EzPSL.Lex as Lex
@@ -8,80 +9,80 @@ import qualified Language.EzPSL.Lex as Lex
 
 %name doParseModule Program
 %name doParseExpression Exp
-%tokentype { Lex.Token }
+%tokentype { (Lex.Token, SourceLocation) }
 %monad { Lex.Alex }
 %error { parseError }
-%lexer { (Lex.nextToken >>=) } { Lex.EOF }
+%lexer { (Lex.nextToken >>=) } { (Lex.EOF, _) }
 
 %token
-    var         { Lex.Identifier $$ }
-    int         { Lex.Integer $$ }
-    str         { Lex.String $$ }
+    var           { (Lex.Identifier _, _) }
+    int           { (Lex.Integer _, _) }
+    str           { (Lex.String _, _) }
 
-    '<<'        { Lex.LtLt }
-    '>>'        { Lex.GtGt }
-    '/\\'       { Lex.Wedge }
-    '\\/'       { Lex.Vee }
-    '->'        { Lex.LeftArrow }
-    '='         { Lex.Eq }
-    '/='        { Lex.Ne }
-    '<'         { Lex.Lt }
-    '<='        { Lex.Le }
-    '>'         { Lex.Gt }
-    '>='        { Lex.Ge }
-    '+'         { Lex.Plus }
-    '-'         { Lex.Minus }
-    '*'         { Lex.Times }
-    '/'         { Lex.Divide }
-    '~'         { Lex.Tilde }
-    '('         { Lex.OpenParen }
-    ')'         { Lex.CloseParen }
-    '['         { Lex.OpenBracket }
-    ']'         { Lex.CloseBracket }
-    '{'         { Lex.OpenBrace }
-    '}'         { Lex.CloseBrace }
-    ':'         { Lex.Colon }
-    ';'         { Lex.SemiColon }
-    ','         { Lex.Comma }
-    '.'         { Lex.Period }
-    '%'         { Lex.Percent }
-    '^'         { Lex.Carat }
-    ':='        { Lex.ColonEquals }
-    '@'         { Lex.At }
-    '|->'       { Lex.PipeDashGt }
-    '\\o'         { Lex.SlashOperator "o" }
-    '\\in'        { Lex.SlashOperator "in" }
-    '\\subseteq'  { Lex.SlashOperator "subseteq" }
-    '\\union'     { Lex.SlashOperator "union" }
-    '\\intersect' { Lex.SlashOperator "intersect" }
-    '\\'          { Lex.SlashOperator "" }
-    ':>'        { Lex.ColonGt }
-    '@@'        { Lex.AtAt }
-    '\\E'       { Lex.SlashOperator "E" }
-    '\\A'       { Lex.SlashOperator "A" }
+    '<<'          { (Lex.LtLt, _) }
+    '>>'          { (Lex.GtGt, _) }
+    '/\\'         { (Lex.Wedge, _) }
+    '\\/'         { (Lex.Vee, _) }
+    '->'          { (Lex.LeftArrow, _) }
+    '='           { (Lex.Eq, _) }
+    '/='          { (Lex.Ne, _) }
+    '<'           { (Lex.Lt, _) }
+    '<='          { (Lex.Le, _) }
+    '>'           { (Lex.Gt, _) }
+    '>='          { (Lex.Ge, _) }
+    '+'           { (Lex.Plus, _) }
+    '-'           { (Lex.Minus, _) }
+    '*'           { (Lex.Times, _) }
+    '/'           { (Lex.Divide, _) }
+    '~'           { (Lex.Tilde, _) }
+    '('           { (Lex.OpenParen, _) }
+    ')'           { (Lex.CloseParen, _) }
+    '['           { (Lex.OpenBracket, _) }
+    ']'           { (Lex.CloseBracket, _) }
+    '{'           { (Lex.OpenBrace, _) }
+    '}'           { (Lex.CloseBrace, _) }
+    ':'           { (Lex.Colon, _) }
+    ';'           { (Lex.SemiColon, _) }
+    ','           { (Lex.Comma, _) }
+    '.'           { (Lex.Period, _) }
+    '%'           { (Lex.Percent, _) }
+    '^'           { (Lex.Carat, _) }
+    ':='          { (Lex.ColonEquals, _) }
+    '@'           { (Lex.At, _) }
+    '|->'         { (Lex.PipeDashGt, _) }
+    '\\o'         { (Lex.SlashOperator "o", _) }
+    '\\in'        { (Lex.SlashOperator "in", _) }
+    '\\subseteq'  { (Lex.SlashOperator "subseteq", _) }
+    '\\union'     { (Lex.SlashOperator "union", _) }
+    '\\intersect' { (Lex.SlashOperator "intersect", _) }
+    '\\'          { (Lex.SlashOperator "", _) }
+    ':>'          { (Lex.ColonGt, _) }
+    '@@'          { (Lex.AtAt, _) }
+    '\\E'         { (Lex.SlashOperator "E", _) }
+    '\\A'         { (Lex.SlashOperator "A", _) }
 
-    'self'      { Lex.Self }
-    'UNION'     { Lex.Union }
-    'SUBSET'    { Lex.Subset }
-    'CHOOSE'    { Lex.Choose }
-    'IF'        { Lex.IF }
-    'THEN'      { Lex.THEN }
-    'ELSE'      { Lex.ELSE }
+    'self'        { (Lex.Self, _) }
+    'UNION'       { (Lex.Union, _) }
+    'SUBSET'      { (Lex.Subset, _) }
+    'CHOOSE'      { (Lex.Choose, _) }
+    'IF'          { (Lex.IF, _) }
+    'THEN'        { (Lex.THEN, _) }
+    'ELSE'        { (Lex.ELSE, _) }
 
-    'var'       { Lex.Var }
-    'proc'      { Lex.Proc }
-    'pick'      { Lex.Pick }
-    'skip'      { Lex.Skip }
-    'either'    { Lex.Either }
-    'or'        { Lex.Or }
-    'while'     { Lex.While }
-    'await'     { Lex.Await }
-    'assert'    { Lex.Assert }
-    'if'        { Lex.If }
-    'else'      { Lex.Else }
-    'yield'     { Lex.Yield }
-    'call'      { Lex.Call }
-    'return'    { Lex.Return }
+    'var'         { (Lex.Var, _) }
+    'proc'        { (Lex.Proc, _) }
+    'pick'        { (Lex.Pick, _) }
+    'skip'        { (Lex.Skip, _) }
+    'either'      { (Lex.Either, _) }
+    'or'          { (Lex.Or, _) }
+    'while'       { (Lex.While, _) }
+    'await'       { (Lex.Await, _) }
+    'assert'      { (Lex.Assert, _) }
+    'if'          { (Lex.If, _) }
+    'else'        { (Lex.Else, _) }
+    'yield'       { (Lex.Yield, _) }
+    'call'        { (Lex.Call, _) }
+    'return'      { (Lex.Return, _) }
 
 %left ':'
 %left '\\E' '\\A' ','
@@ -113,51 +114,63 @@ VarDecls :: { [VarDecl SourceLocation] }
   | VarDecl VarDecls { $1 : $2 }
 
 VarDecl :: { VarDecl SourceLocation }
-  : 'var' var ':=' Exp ';' {% withPosition (\pos -> VarDecl pos $2 $4) }
+  : 'var' Var ':=' Exp ';' { VarDecl (tokenLocation $1) (fst $2) $4 }
+
+Var :: { (Id, SourceLocation) }
+Var
+  : var { case $1 of { (Lex.Identifier x, loc) -> (x, loc); _ -> error "impossible" } }
+
+Int :: { (Integer, SourceLocation) }
+Int
+  : int { case $1 of { (Lex.Integer x, loc) -> (x, loc); _ -> error "impossible" } }
+
+StringLiteral :: { (String, SourceLocation) }
+StringLiteral
+  : str { case $1 of { (Lex.String x, loc) -> (x, loc); _ -> error "impossible" } }
 
 Exp :: { Exp SourceLocation }
-  : int             {% withPosition (\pos -> EInt pos $1) }
-  | str             {% withPosition (\pos -> EStr pos $1) }
-  | var MaybeArgs   {% withPosition (\pos -> case $2 of { Nothing -> EVar pos $1; Just args -> ECall pos $1 args }) }
-  | 'self'          {% withPosition EThreadID }
-  | Exp '<'   Exp   {% withPosition (\pos -> EBinaryOp pos Lt $1 $3) }
-  | Exp '>'   Exp   {% withPosition (\pos -> EBinaryOp pos Gt $1 $3) }
-  | Exp '<='  Exp   {% withPosition (\pos -> EBinaryOp pos Le $1 $3) }
-  | Exp '>='  Exp   {% withPosition (\pos -> EBinaryOp pos Ge $1 $3) }
-  | Exp '='   Exp   {% withPosition (\pos -> EBinaryOp pos Eq $1 $3) }
-  | Exp '/='  Exp   {% withPosition (\pos -> EBinaryOp pos Ne $1 $3) }
-  | Exp '+'   Exp   {% withPosition (\pos -> EBinaryOp pos Plus $1 $3) }
-  | Exp '-'   Exp   {% withPosition (\pos -> EBinaryOp pos Minus $1 $3) }
-  | Exp '*'   Exp   {% withPosition (\pos -> EBinaryOp pos Times $1 $3) }
-  | Exp '/'   Exp   {% withPosition (\pos -> EBinaryOp pos Divide $1 $3) }
-  | Exp '%'   Exp   {% withPosition (\pos -> EBinaryOp pos Mod $1 $3) }
-  | Exp '^'   Exp   {% withPosition (\pos -> EBinaryOp pos Exp $1 $3) }
-  | Exp '/\\' Exp   {% withPosition (\pos -> EBinaryOp pos And $1 $3) }
-  | Exp '\\/' Exp   {% withPosition (\pos -> EBinaryOp pos Or $1 $3) }
-  | Exp '->'  Exp   {% withPosition (\pos -> EBinaryOp pos Implies $1 $3) }
-  | Exp '\\o'  Exp  {% withPosition (\pos -> EBinaryOp pos Concat $1 $3) }
-  | Exp '\\in'  Exp {% withPosition (\pos -> EBinaryOp pos In $1 $3) }
-  | Exp '\\subseteq'  Exp  {% withPosition (\pos -> EBinaryOp pos Subset $1 $3) }
-  | Exp '\\union'  Exp     {% withPosition (\pos -> EBinaryOp pos Union $1 $3) }
-  | Exp '\\intersect'  Exp {% withPosition (\pos -> EBinaryOp pos Intersection $1 $3) }
-  | Exp '\\'  Exp   {% withPosition (\pos -> EBinaryOp pos SetDifference $1 $3) }
-  | Exp ':>'  Exp   {% withPosition (\pos -> EBinaryOp pos SingletonMapping $1 $3) }
-  | Exp '@@'  Exp   {% withPosition (\pos -> EBinaryOp pos LeftBiasedMapUnion $1 $3) }
-  | '~' Exp         {% withPosition (\pos -> EUnaryOp pos Not $2)}
-  | '-' Exp         {% withPosition (\pos -> EUnaryOp pos Negate $2)}
-  | 'UNION' Exp     {% withPosition (\pos -> EUnaryOp pos UnionAll $2)}
-  | 'SUBSET' Exp    {% withPosition (\pos -> EUnaryOp pos AllSubsets $2)}
-  | Exp '.' var     {% withPosition (\pos -> EGetField pos $1 $3)}
-  | Exp '[' Exp ']' {% withPosition (\pos -> EIndex pos $1 $3)}
-  | '{' ExpList '}' {% withPosition (\pos -> EMkSet pos $2) }
-  | '<<' ExpList '>>' {% withPosition (\pos -> EMkTuple pos $2) }
-  | '[' Fields ']'  {% withPosition (\pos -> EMkRecord pos $2) }
-  | '[' var '\\in' Exp '|->' Exp ']' {% withPosition (\pos -> EMkFunc pos $2 $4 $6) }
-  | '\\E'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Exists $2 $4 $6) }
-  | '\\A'    var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Forall $2 $4 $6) }
-  | 'CHOOSE' var '\\in' Exp ':' Exp {% withPosition (\pos -> EQuant pos Choose $2 $4 $6) }
-  | 'IF' Exp 'THEN' Exp 'ELSE' Exp  {% withPosition (\pos -> ECond pos $2 $4 $6) }
-  | '(' Exp ')'     {  $2 }
+  : Int                              { EInt (snd $1) (fst $1) }
+  | StringLiteral                    { EStr (snd $1) (fst $1) }
+  | Var MaybeArgs                    { case $2 of { Nothing -> EVar (snd $1) (fst $1); Just args -> ECall (snd $1) (fst $1) args } }
+  | 'self'                           { EThreadID (tokenLocation $1) }
+  | Exp '<'   Exp                    { EBinaryOp (tokenLocation $2) Lt $1 $3 }
+  | Exp '>'   Exp                    { EBinaryOp (tokenLocation $2) Gt $1 $3 }
+  | Exp '<='  Exp                    { EBinaryOp (tokenLocation $2) Le $1 $3 }
+  | Exp '>='  Exp                    { EBinaryOp (tokenLocation $2) Ge $1 $3 }
+  | Exp '='   Exp                    { EBinaryOp (tokenLocation $2) Eq $1 $3 }
+  | Exp '/='  Exp                    { EBinaryOp (tokenLocation $2) Ne $1 $3 }
+  | Exp '+'   Exp                    { EBinaryOp (tokenLocation $2) Plus $1 $3 }
+  | Exp '-'   Exp                    { EBinaryOp (tokenLocation $2) Minus $1 $3 }
+  | Exp '*'   Exp                    { EBinaryOp (tokenLocation $2) Times $1 $3 }
+  | Exp '/'   Exp                    { EBinaryOp (tokenLocation $2) Divide $1 $3 }
+  | Exp '%'   Exp                    { EBinaryOp (tokenLocation $2) Mod $1 $3 }
+  | Exp '^'   Exp                    { EBinaryOp (tokenLocation $2) Exp $1 $3 }
+  | Exp '/\\' Exp                    { EBinaryOp (tokenLocation $2) And $1 $3 }
+  | Exp '\\/' Exp                    { EBinaryOp (tokenLocation $2) Or $1 $3 }
+  | Exp '->'  Exp                    { EBinaryOp (tokenLocation $2) Implies $1 $3 }
+  | Exp '\\o'  Exp                   { EBinaryOp (tokenLocation $2) Concat $1 $3 }
+  | Exp '\\in'  Exp                  { EBinaryOp (tokenLocation $2) In $1 $3 }
+  | Exp '\\subseteq'  Exp            { EBinaryOp (tokenLocation $2) Subset $1 $3 }
+  | Exp '\\union'  Exp               { EBinaryOp (tokenLocation $2) Union $1 $3 }
+  | Exp '\\intersect'  Exp           { EBinaryOp (tokenLocation $2) Intersection $1 $3 }
+  | Exp '\\'  Exp                    { EBinaryOp (tokenLocation $2) SetDifference $1 $3 }
+  | Exp ':>'  Exp                    { EBinaryOp (tokenLocation $2) SingletonMapping $1 $3 }
+  | Exp '@@'  Exp                    { EBinaryOp (tokenLocation $2) LeftBiasedMapUnion $1 $3 }
+  | '~' Exp                          { EUnaryOp (tokenLocation $1) Not $2 }
+  | '-' Exp                          { EUnaryOp (tokenLocation $1) Negate $2 }
+  | 'UNION' Exp                      { EUnaryOp (tokenLocation $1) UnionAll $2 }
+  | 'SUBSET' Exp                     { EUnaryOp (tokenLocation $1) AllSubsets $2 }
+  | Exp '.' Var                      { EGetField (tokenLocation $2) $1 (fst $3) }
+  | Exp '[' Exp ']'                  { EIndex (tokenLocation $2) $1 $3 }
+  | '{' ExpList '}'                  { EMkSet (tokenLocation $1) $2 }
+  | '<<' ExpList '>>'                { EMkTuple (tokenLocation $1) $2 }
+  | '[' Fields ']'                   { EMkRecord (tokenLocation $1) $2 }
+  | '[' Var '\\in' Exp '|->' Exp ']' { EMkFunc (tokenLocation $1) (fst $2) $4 $6 }
+  | '\\E'    Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Exists (fst $2) $4 $6 }
+  | '\\A'    Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Forall (fst $2) $4 $6 }
+  | 'CHOOSE' Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Choose (fst $2) $4 $6 }
+  | 'IF' Exp 'THEN' Exp 'ELSE' Exp   { ECond (tokenLocation $1) $2 $4 $6 }
+  | '(' Exp ')'                      { $2 }
 
 MaybeArgs :: { Maybe [Exp SourceLocation] }
   :      { Nothing }
@@ -183,56 +196,56 @@ Fields1 :: { [(FieldName, Exp SourceLocation)] }
   | Field ',' Fields1 { $1 : $3 }
 
 Field :: { (FieldName, Exp SourceLocation) }
-  : var '|->' Exp { ($1, $3) }
+  : Var '|->' Exp { (fst $1, $3) }
 
 Procedures :: { [Procedure SourceLocation] }
   : { [] }
   | Procedure Procedures { $1 : $2 }
 
 Procedure :: { Procedure SourceLocation }
-  : Annotations 'proc' var '(' Params ')' '{' VarDecls MaybeStm '}' {% withPosition (\pos -> Procedure pos $1 $3 $5 $8 $9) }
+  : Annotations 'proc' Var '(' Params ')' '{' VarDecls MaybeStm '}' { Procedure (tokenLocation $2) $1 (fst $3) $5 $8 $9 }
 
 Annotations :: { [Annotation] }
   :                        { [] }
   | Annotation Annotations { $1 : $2 }
 
 Annotation :: { Annotation }
-  : '@' var {% case $2 of {
-    "entry" -> withPosition (const EntryPoint);
-    a -> reportError $ "Illegal annotation " ++ show a ++ "; the only legal choice is \"@entry\"" } }
+  : '@' Var {% case fst $2 of {
+    "entry" -> return EntryPoint;
+    a -> reportError (snd $2) $ "Illegal annotation " ++ show a ++ "; the only legal choice is \"@entry\"" } }
 
 Params :: { [Id] }
   : { [] }
   | Params1 { $1 }
 
 Params1 :: { [Id] }
-  : var             { [$1] }
-  | var ',' Params1 { $1 : $3 }
+  : Var             { [fst $1] }
+  | Var ',' Params1 { fst $1 : $3 }
 
 LValue :: { LValue SourceLocation }
-  : var                {% withPosition (\pos -> LVar pos $1) }
-  | LValue '[' Exp ']' {% withPosition (\pos -> LIndex pos $1 $3) }
-  | LValue '.' var     {% withPosition (\pos -> LField pos $1 $3) }
+  : Var                { LVar (snd $1) (fst $1) }
+  | LValue '[' Exp ']' { LIndex (tokenLocation $2) $1 $3 }
+  | LValue '.' Var     { LField (tokenLocation $2) $1 (fst $3) }
 
 Stm :: { Stm SourceLocation }
   : BasicStm     {  $1 }
-  | BasicStm Stm {% withPosition (\pos -> Seq pos $1 $2) }
+  | BasicStm Stm { Seq (getAnnotation $1) $1 $2 }
 
 BasicStm :: { Stm SourceLocation }
-  : LValue ':=' Exp ';'                        {% withPosition (\pos -> Assign pos $1 $3) }
-  | 'if' '(' Exp ')' Block ElseClauses         {% withPosition (\pos -> If pos $3 $5 $6) }
-  | 'either' Block OrClauses1                  {% withPosition (\pos -> Either pos ($2 : $3)) }
-  | 'await' Exp ';'                            {% withPosition (\pos -> Await pos $2) }
-  | 'assert' Exp ';'                           {% withPosition (\pos -> Assert pos $2) }
-  | 'skip' ';'                                 {% withPosition Skip }
-  | 'yield' ';'                                {% withPosition Yield }
-  | 'call' var Args ';'                        {% withPosition (\pos -> Call pos $2 $3) }
-  | LValue ':=' 'call' var Args ';'            {% withPosition (\pos -> CallAndSaveReturnValue pos $1 $4 $5) }
-  | 'pick' LValue '\\in' Exp ';'               {% withPosition (\pos -> NondeterministicAssign pos $2 $4 (EVar pos "TRUE")) }
-  | 'pick' LValue '\\in' Exp ':' Exp ';'       {% withPosition (\pos -> NondeterministicAssign pos $2 $4 $6) }
-  | 'return' ';'                               {% withPosition (\pos -> Return pos Nothing) }
-  | 'return' Exp ';'                           {% withPosition (\pos -> Return pos (Just $2)) }
-  | 'while' '(' Exp ')' Block                  {% withPosition (\pos -> While pos $3 $5) }
+  : LValue ':=' Exp ';'                        { Assign (tokenLocation $2) $1 $3 }
+  | 'if' '(' Exp ')' Block ElseClauses         { If (tokenLocation $1) $3 $5 $6 }
+  | 'either' Block OrClauses1                  { Either (tokenLocation $1) ($2 : $3) }
+  | 'await' Exp ';'                            { Await (tokenLocation $1) $2 }
+  | 'assert' Exp ';'                           { Assert (tokenLocation $1) $2 }
+  | 'skip' ';'                                 { Skip (tokenLocation $1) }
+  | 'yield' ';'                                { Yield (tokenLocation $1) }
+  | 'call' Var Args ';'                        { Call (tokenLocation $1) (fst $2) $3 }
+  | LValue ':=' 'call' Var Args ';'            { CallAndSaveReturnValue (tokenLocation $2) $1 (fst $4) $5 }
+  | 'pick' LValue '\\in' Exp ';'               { NondeterministicAssign (tokenLocation $1) $2 $4 (EVar (tokenLocation $1) "TRUE") }
+  | 'pick' LValue '\\in' Exp ':' Exp ';'       { NondeterministicAssign (tokenLocation $1) $2 $4 $6 }
+  | 'return' ';'                               { Return (tokenLocation $1) Nothing }
+  | 'return' Exp ';'                           { Return (tokenLocation $1) (Just $2) }
+  | 'while' '(' Exp ')' Block                  { While (tokenLocation $1) $3 $5 }
 
 MaybeStm :: { Stm SourceLocation }
   :     {% withPosition Skip }
@@ -251,22 +264,24 @@ OrClause :: { Stm SourceLocation }
 ElseClauses :: { Stm SourceLocation }
   :                                           {% withPosition Skip }
   | 'else' Block                              { $2 }
-  | 'else' 'if' '(' Exp ')' Block ElseClauses {% withPosition (\pos -> If pos $4 $6 $7) }
+  | 'else' 'if' '(' Exp ')' Block ElseClauses { If (tokenLocation $2) $4 $6 $7 }
 
 {
+
+tokenLocation :: (Lex.Token, SourceLocation) -> SourceLocation
+tokenLocation = snd
 
 withPosition :: (SourceLocation -> t) -> Lex.Alex t
 withPosition f = do
   pos <- Lex.here
   return $ f pos
 
-reportError :: String -> Lex.Alex a
-reportError msg = do
-  pos <- Lex.here
+reportError :: SourceLocation -> String -> Lex.Alex a
+reportError pos msg = do
   Lex.alexError $ "Parse error at line " ++ (show $ line pos) ++ ", column " ++ (show $ column pos) ++ ": " ++ msg
 
-parseError :: Lex.Token -> Lex.Alex a
-parseError token = reportError $ "unexpected " ++ show token
+parseError :: (Lex.Token, SourceLocation) -> Lex.Alex a
+parseError (token, pos) = reportError pos $ "unexpected " ++ show token
 
 parseModule :: (MonadFail m) => String -> m (Module SourceLocation)
 parseModule s =

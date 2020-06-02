@@ -124,22 +124,27 @@ data Token
   | EOF
   deriving (Eq, Show)
 
-makeToken :: (String -> Token) -> AlexInput -> Int -> Alex Token
-makeToken f (_, _, _, s) len = return $ f (take len s)
+getLocation :: AlexInput -> SourceLocation
+getLocation (AlexPn _ l c, _, _, _) = SourceLocation { line = l, column = c }
 
-justToken :: Token -> AlexInput -> Int -> Alex Token
-justToken t _ _ = return t
+makeToken :: (String -> Token) -> AlexInput -> Int -> Alex (Token, SourceLocation)
+makeToken f inp@(_, _, _, s) len = return (f (take len s), getLocation inp)
+
+justToken :: Token -> AlexInput -> Int -> Alex (Token, SourceLocation)
+justToken t inp _ = return (t, getLocation inp)
 
 here :: Alex SourceLocation
 here = do
-  (AlexPn _ l c, _, _, _) <- alexGetInput
-  return $ SourceLocation { line = l, column = c }
+  inp <- alexGetInput
+  return $ getLocation inp
 
 -- | Required by the Alex monad wrapper.  (Not mentioned in the docs, tho...)
-alexEOF :: Alex Token
-alexEOF = return EOF
+alexEOF :: Alex (Token, SourceLocation)
+alexEOF = do
+  pos <- here
+  return (EOF, pos)
 
-nextToken :: Alex Token
+nextToken :: Alex (Token, SourceLocation)
 nextToken = alexMonadScan
 
 }
