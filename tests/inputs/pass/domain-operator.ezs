@@ -1,0 +1,7 @@
+\* CFG CONSTANT main_calls = {A, B}
+
+@entry
+proc main() {
+    assert DOMAIN [x \in {1, 2} |-> 0] = {1, 2};
+    assert DOMAIN [a |-> 1, b |-> 2] = {"a", "b"};
+}

@@ -213,6 +213,7 @@ exp2tla env (EUnaryOp _ op e) = do
   case op of
     Not -> return $ "~" ++ e'
     Negate -> return $ "-" ++ e'
+    Domain -> return $ "(DOMAIN " ++ e' ++ ")"
     UnionAll -> return $ "(UNION " ++ e' ++ ")"
     AllSubsets -> return $ "(SUBSET " ++ e' ++ ")"
 exp2tla env (EBinaryOp _ op e1 e2) = do

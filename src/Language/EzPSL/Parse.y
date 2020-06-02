@@ -62,6 +62,7 @@ import qualified Language.EzPSL.Lex as Lex
     '\\A'         { (Lex.SlashOperator "A", _) }
 
     'self'        { (Lex.Self, _) }
+    'DOMAIN'      { (Lex.Domain, _) }
     'UNION'       { (Lex.Union, _) }
     'SUBSET'      { (Lex.Subset, _) }
     'CHOOSE'      { (Lex.Choose, _) }
@@ -100,7 +101,7 @@ import qualified Language.EzPSL.Lex as Lex
 %left '*' '/' '%'
 %left '^'
 %left '\\o'
-%left '~' '-' 'UNION' 'SUBSET'
+%left '~' '-' 'UNION' 'SUBSET' 'DOMAIN'
 %left '['
 %left '.'
 
@@ -158,6 +159,7 @@ Exp :: { Exp SourceLocation }
   | Exp '@@'  Exp                    { EBinaryOp (tokenLocation $2) LeftBiasedMapUnion $1 $3 }
   | '~' Exp                          { EUnaryOp (tokenLocation $1) Not $2 }
   | '-' Exp                          { EUnaryOp (tokenLocation $1) Negate $2 }
+  | 'DOMAIN' Exp                     { EUnaryOp (tokenLocation $1) Domain $2 }
   | 'UNION' Exp                      { EUnaryOp (tokenLocation $1) UnionAll $2 }
   | 'SUBSET' Exp                     { EUnaryOp (tokenLocation $1) AllSubsets $2 }
   | Exp '.' Var                      { EGetField (tokenLocation $2) $1 (fst $3) }

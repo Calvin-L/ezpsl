@@ -61,6 +61,7 @@ tokens :-
        \\[$alpha]*                     { makeToken $ \s -> SlashOperator (tail s) }
 
        self                            { justToken Self }
+       DOMAIN                          { justToken Domain }
        UNION                           { justToken Union }
        SUBSET                          { justToken Subset }
        CHOOSE                          { justToken Choose }
@@ -106,7 +107,7 @@ data Token
   | OpenBracket | CloseBracket
   -- Keywords
   | Self
-  | Union | Subset
+  | Domain | Union | Subset
   | IF | THEN | ELSE
   | Choose
   | Var | Proc

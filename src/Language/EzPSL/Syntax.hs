@@ -8,7 +8,7 @@ type Id = String
 type FieldName = String
 
 data UnaryOp
-  = Not | Negate | UnionAll | AllSubsets
+  = Not | Negate | UnionAll | AllSubsets | Domain
   deriving (Eq, Ord, Show)
 
 data BinaryOp
