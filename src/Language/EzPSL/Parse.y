@@ -23,7 +23,7 @@ import qualified Language.EzPSL.Lex as Lex
     '>>'          { (Lex.GtGt, _) }
     '/\\'         { (Lex.Wedge, _) }
     '\\/'         { (Lex.Vee, _) }
-    '->'          { (Lex.LeftArrow, _) }
+    '=>'          { (Lex.LeftArrow, _) }
     '='           { (Lex.Eq, _) }
     '/='          { (Lex.Ne, _) }
     '<'           { (Lex.Lt, _) }
@@ -89,7 +89,7 @@ import qualified Language.EzPSL.Lex as Lex
 %left ':'
 %left '\\E' '\\A' ','
 %left 'THEN' 'ELSE'
-%right '->'
+%right '=>'
 %left '\\/'
 %left '/\\'
 %left '=' '/=' '<' '>' '>=' '<='
@@ -149,7 +149,7 @@ Exp :: { Exp SourceLocation }
   | Exp '^'   Exp                    { EBinaryOp (tokenLocation $2) Exp $1 $3 }
   | Exp '/\\' Exp                    { EBinaryOp (tokenLocation $2) And $1 $3 }
   | Exp '\\/' Exp                    { EBinaryOp (tokenLocation $2) Or $1 $3 }
-  | Exp '->'  Exp                    { EBinaryOp (tokenLocation $2) Implies $1 $3 }
+  | Exp '=>'  Exp                    { EBinaryOp (tokenLocation $2) Implies $1 $3 }
   | Exp '\\o'  Exp                   { EBinaryOp (tokenLocation $2) Concat $1 $3 }
   | Exp '\\in'  Exp                  { EBinaryOp (tokenLocation $2) In $1 $3 }
   | Exp '\\notin' Exp                { EUnaryOp (tokenLocation $2) Not (EBinaryOp (tokenLocation $2) In $1 $3) }
