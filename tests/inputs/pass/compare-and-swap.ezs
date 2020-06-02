@@ -1,0 +1,18 @@
+\* CFG CONSTANT main_calls = {A, B, C}
+
+var x := 0;
+
+@entry
+proc main() {
+    var success := FALSE;
+
+    \* this if-block should execute atomically
+    if (x = 0) {
+        x := self;
+        success := TRUE;
+    }
+    
+    yield;
+
+    assert success => x = self;
+}

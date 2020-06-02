@@ -1,0 +1,14 @@
+\* CFG CONSTANT main_calls = {A}
+\* CFG CONSTANT check_calls = {B}
+
+var chosenValue := 0;
+
+@entry
+proc main() {
+    pick chosenValue \in {1, 2, 3};
+}
+
+@entry
+proc check() {
+    assert chosenValue /= 2;
+}

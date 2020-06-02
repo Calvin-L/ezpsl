@@ -54,3 +54,6 @@ tests:
     dependencies:
       - ezpsl
       - hspec
+      - directory
+      - temporary
+      - process
