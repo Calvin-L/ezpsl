@@ -27,7 +27,7 @@ parseCommandLineOpts = loop defaultOpts
     loop opts [f] = Right $ opts { inputFile = Just f }
     loop opts ["--", f] = Right $ opts { inputFile = Just f }
     loop opts ("-o" : out : rest) = loop (opts { outputFile = Just out }) rest
-    loop opts (o : _) = Left $ "unexpected option " ++ show o
+    loop _ (o : _) = Left $ "unexpected option " ++ show o
 
 data SplitResult
   = NoIncludes

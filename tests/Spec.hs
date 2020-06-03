@@ -31,21 +31,21 @@ main = hspec $ do
       fmap stripLocations (parseExpression "(1 + 2) * 3") `shouldBe`
         Right (EBinaryOp () Times (EBinaryOp () Plus (EInt () 1) (EInt () 2)) (EInt () 3))
 
-  let dir = "tests/inputs/pass" -- relative to project root
-  toCheck <- runIO $ do
-    allEntries <- getDirectoryContents dir
+  let okDir = "tests/inputs/pass" -- relative to project root
+  okToCheck <- runIO $ do
+    allEntries <- getDirectoryContents okDir
     return [f | f <- allEntries, ".ezs" `isSuffixOf` f]
-  describe ("Testing files in " ++ dir) $ do
-    forM_ toCheck (\fileName -> do
-      it ("passes " ++ fileName) $ checkFile (dir ++ "/" ++ fileName) `shouldReturn` True)
+  describe ("Testing files in " ++ okDir) $ do
+    forM_ okToCheck (\fileName -> do
+      it ("passes " ++ fileName) $ checkFile (okDir ++ "/" ++ fileName) `shouldReturn` True)
 
-  let dir = "tests/inputs/fail-assertion" -- relative to project root
-  toCheck <- runIO $ do
-    allEntries <- getDirectoryContents dir
+  let failDir = "tests/inputs/fail-assertion" -- relative to project root
+  failToCheck <- runIO $ do
+    allEntries <- getDirectoryContents failDir
     return [f | f <- allEntries, ".ezs" `isSuffixOf` f]
-  describe ("Testing files in " ++ dir) $ do
-    forM_ toCheck (\fileName -> do
-      it ("finds assertion violation in " ++ fileName) $ checkFile (dir ++ "/" ++ fileName) `shouldReturn` False)
+  describe ("Testing files in " ++ failDir) $ do
+    forM_ failToCheck (\fileName -> do
+      it ("finds assertion violation in " ++ fileName) $ checkFile (failDir ++ "/" ++ fileName) `shouldReturn` False)
 
 stripLocations :: Exp t -> Exp ()
 stripLocations = fmap (const ())

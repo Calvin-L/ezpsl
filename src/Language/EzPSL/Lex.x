@@ -11,7 +11,7 @@ module Language.EzPSL.Lex (
   nextToken)
   where
 
-import Data.SourceLocation
+import qualified Data.SourceLocation as Loc
 }
 
 %wrapper "monad"
@@ -127,27 +127,27 @@ data Token
   | EOF
   deriving (Eq, Show)
 
-getLocation :: AlexInput -> SourceLocation
-getLocation (AlexPn _ l c, _, _, _) = SourceLocation { line = l, column = c }
+getLocation :: AlexInput -> Loc.SourceLocation
+getLocation (AlexPn _ l c, _, _, _) = Loc.SourceLocation { Loc.line = l, Loc.column = c }
 
-makeToken :: (String -> Token) -> AlexInput -> Int -> Alex (Token, SourceLocation)
+makeToken :: (String -> Token) -> AlexInput -> Int -> Alex (Token, Loc.SourceLocation)
 makeToken f inp@(_, _, _, s) len = return (f (take len s), getLocation inp)
 
-justToken :: Token -> AlexInput -> Int -> Alex (Token, SourceLocation)
+justToken :: Token -> AlexInput -> Int -> Alex (Token, Loc.SourceLocation)
 justToken t inp _ = return (t, getLocation inp)
 
-here :: Alex SourceLocation
+here :: Alex Loc.SourceLocation
 here = do
   inp <- alexGetInput
   return $ getLocation inp
 
 -- | Required by the Alex monad wrapper.  (Not mentioned in the docs, tho...)
-alexEOF :: Alex (Token, SourceLocation)
+alexEOF :: Alex (Token, Loc.SourceLocation)
 alexEOF = do
   pos <- here
   return (EOF, pos)
 
-nextToken :: Alex (Token, SourceLocation)
+nextToken :: Alex (Token, Loc.SourceLocation)
 nextToken = alexMonadScan
 
 }

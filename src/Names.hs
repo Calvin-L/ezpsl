@@ -31,18 +31,6 @@ get = NamesOp $ \st -> Right (st, st)
 put :: NamesState -> NamesOp ()
 put st = NamesOp $ const $ Right (st, ())
 
-findName :: String -> (String -> Bool) -> String
-findName x predicate
-  | predicate x = x
-  | otherwise = loop 0
-    where
-      loop :: Integer -> String
-      loop i =
-        let x' = x ++ "_" ++ show i in
-        if predicate x'
-          then x'
-          else loop (i+1)
-
 freshName :: String -> NamesOp String
 freshName hint = do
   m <- get

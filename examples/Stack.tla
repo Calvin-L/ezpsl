@@ -10,7 +10,7 @@ VARIABLES _pc, _frames, _ret, _actor, head
 vars == <<_pc, _frames, _ret, _actor, head>>
 symmetry == UNION {Permutations(dequeue_calls), Permutations(enqueue_calls)}
 Init ==
-  /\ _pc = [_pid \in dequeue_calls |-> <<"_dequeue">>] @@ [_pid \in enqueue_calls |-> <<"_enqueue">>]
+  /\ _pc = [_pid \in dequeue_calls |-> <<"_enqueue">>] @@ [_pid \in enqueue_calls |-> <<"_dequeue">>]
   /\ _frames = [_pid \in dequeue_calls |-> << <<>> >>] @@ [_pid \in enqueue_calls |-> << <<>> >>]
   /\ _ret = [_pid \in dequeue_calls |-> _Undefined] @@ [_pid \in enqueue_calls |-> _Undefined]
   /\ _actor = _Undefined

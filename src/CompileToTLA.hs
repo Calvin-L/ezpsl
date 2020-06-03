@@ -8,6 +8,7 @@ import Data.Char (isAlpha)
 import Data.Annotated (Annotated, getAnnotation)
 import Data.SourceLocation (SourceLocation(SourceLocation), line, column)
 import Language.EzPSL.Syntax
+import Language.EzPSL.Transform (transformBottomUp)
 import Names (NamesOp, runNamesOp, freshName)
 import Constants (pcVar, framesVar, retVar, actorVar, selfConstant, undefinedConstant)
 import Misc (join, pad)
@@ -20,7 +21,7 @@ ezpsl2tla m@(Module _ vars procs) = do
   case entryProcedureNames of
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
-      initialValues <- mapM (\(VarDecl _ v e) -> exp2tla (M.empty) e) vars
+      initialValues <- mapM (\(VarDecl _ _ e) -> exp2tla (M.empty) e) vars
       (bigCfg, procedureEntryLabels, transitions, assertions) <- runNamesOp $ do
         compiled <- mapM (toCfg env) procs
         let (cfgs, asserts, labels) = unzip3 compiled
@@ -38,11 +39,11 @@ ezpsl2tla m@(Module _ vars procs) = do
         "vars == <<" ++ join ", " allVars ++ ">>",
         "symmetry == UNION {" ++ join ", " ["Permutations(" ++ p ++ ")" | p <- pidSets] ++ "}",
         "Init =="]
-        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ "_calls |-> <<" ++ show (entryLabel p) ++ ">>]" | p <- entryProcedureNames]]
+        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ "_calls |-> <<" ++ show pEntry ++ ">>]" | (p, pEntry) <- zip entryProcedureNames procedureEntryLabels]]
         ++ ["  /\\ " ++ framesVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> << <<>> >>]" | p <- pidSets]]
         ++ ["  /\\ " ++ retVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> " ++ undefinedConstant ++ "]" | p <- pidSets]]
         ++ ["  /\\ " ++ actorVar ++ " = " ++ undefinedConstant]
-        ++ ["  /\\ " ++ v ++ " = " ++ init | (VarDecl _ v _, init) <- zip vars initialValues]
+        ++ ["  /\\ " ++ v ++ " = " ++ initValue | (VarDecl _ v _, initValue) <- zip vars initialValues]
         ++ transitions
         ++ ["_halt(" ++ selfConstant ++ ") ==",
             "  /\\ " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
@@ -115,69 +116,6 @@ compileBinaryOp SetDifference      e1 e2 = e1 ++ " \\ "         ++ e2
 compileBinaryOp SingletonMapping   e1 e2 = e1 ++ " :> "         ++ e2
 compileBinaryOp LeftBiasedMapUnion e1 e2 = e1 ++ " @@ "         ++ e2
 
-transformBottomUp :: (Monad m, Show a) => (Exp a -> m (Exp a)) -> Exp a -> m (Exp a)
-transformBottomUp f e@(EInt _ _) = f e
-transformBottomUp f e@(EStr _ _) = f e
-transformBottomUp f e@(EVar _ _) = f e
-transformBottomUp f e@(EThreadID _) = f e
-transformBottomUp f (EUnaryOp loc op e) = do
-  e' <- transformBottomUp f e
-  f (EUnaryOp loc op e')
-transformBottomUp f (EBinaryOp loc op e1 e2) = do
-  e1' <- transformBottomUp f e1
-  e2' <- transformBottomUp f e2
-  f (EBinaryOp loc op e1' e2')
-transformBottomUp f (EIndex loc e1 e2) = do
-  e1' <- transformBottomUp f e1
-  e2' <- transformBottomUp f e2
-  f (EIndex loc e1' e2')
-transformBottomUp f (EGetField loc e field) = do
-  e' <- transformBottomUp f e
-  f (EGetField loc e' field)
-transformBottomUp f (ECall loc func args) = do
-  args' <- mapM (transformBottomUp f) args
-  f (ECall loc func args')
-transformBottomUp f (EMkTuple loc args) = do
-  args' <- mapM (transformBottomUp f) args
-  f (EMkTuple loc args')
-transformBottomUp f (EMkSet loc args) = do
-  args' <- mapM (transformBottomUp f) args
-  f (EMkSet loc args')
-transformBottomUp f (ESetComprehension loc e clauses) = do
-  e' <- transformBottomUp f e
-  clauses' <- mapM transformClause clauses
-  f (ESetComprehension loc e' clauses')
-  where
-    transformClause (SCMember loc x set) = do
-      set' <- transformBottomUp f set
-      return (SCMember loc x set')
-    transformClause (SCFilter loc p) = do
-      p' <- transformBottomUp f p
-      return (SCFilter loc p')
-transformBottomUp f (EMkRecord loc fields) = do
-  fields' <- mapM (\(fieldName, e) -> do
-    e' <- transformBottomUp f e
-    return (fieldName, e')) fields
-  f (EMkRecord loc fields')
-transformBottomUp f (ECond loc cond thenCase elseCase) = do
-  cond' <- transformBottomUp f cond
-  thenCase' <- transformBottomUp f thenCase
-  elseCase' <- transformBottomUp f elseCase
-  f (ECond loc cond' thenCase' elseCase')
-transformBottomUp f (EMkFunc loc param domain range) = do
-  domain' <- transformBottomUp f domain
-  range' <- transformBottomUp f range
-  f (EMkFunc loc param domain' range')
-transformBottomUp f (EExcept loc func inputValueToOverride newOutputValue) = do
-  func' <- transformBottomUp f func
-  inputValueToOverride' <- transformBottomUp f inputValueToOverride
-  newOutputValue' <- transformBottomUp f newOutputValue
-  f (EExcept loc func inputValueToOverride newOutputValue)
-transformBottomUp f (EQuant loc q arg domain predicate) = do
-  domain' <- transformBottomUp f domain
-  predicate' <- transformBottomUp f predicate
-  f (EQuant loc q arg domain' predicate')
-
 fixReads :: (MonadFail m) => KEnv -> Exp SourceLocation -> m (Exp SourceLocation)
 fixReads kenv =
   transformBottomUp (\e ->
@@ -200,16 +138,16 @@ fixReads kenv =
 exp2tla :: (Monad m) => Env -> Exp SourceLocation -> m TLACode
 exp2tla _ (EInt _ i) = return (show i)
 exp2tla _ (EStr _ s) = return (show s)
-exp2tla env e@(EVar _ v) =
+exp2tla env (EVar _ v) =
   case M.lookup v env of
     Nothing -> return v
     Just v' -> return v'
-exp2tla env (EThreadID _) =
+exp2tla _ (EThreadID _) =
   return selfConstant
 exp2tla env (EMkSet _ es) = do
   es' <- mapM (exp2tla env) es
   return $ "{" ++ join ", " es' ++ "}"
-exp2tla initialEnv (ESetComprehension loc e clauses) = loop initialEnv clauses
+exp2tla outerEnv (ESetComprehension loc e clauses) = loop outerEnv clauses
   where
     loop env [] = exp2tla env (EMkSet loc [e])
     loop env (SCFilter _ p : rest) = do
@@ -225,7 +163,7 @@ exp2tla env (EMkTuple _ es) = do
   return $ "<<" ++ join ", " es' ++ ">>"
 exp2tla env (EMkRecord loc []) = do
   exp2tla env (EMkTuple loc [])
-exp2tla env (EMkRecord loc fields) = do
+exp2tla env (EMkRecord _ fields) = do
   fields' <- mapM (\(fieldName, fieldValue) -> do
     fieldValue' <- exp2tla env fieldValue
     return (fieldName, fieldValue')) fields
@@ -305,11 +243,6 @@ replaceTop stack newTop =
   let a = getAnnotation stack in
   EBinaryOp a Concat (pop 1 stack) (EMkTuple a [newTop])
 
-sequenceStms :: [Stm SourceLocation] -> Stm SourceLocation
-sequenceStms [] = Skip noLocation
-sequenceStms [s] = s
-sequenceStms (s : rest) = Seq (getAnnotation s) s (sequenceStms rest)
-
 entryLabel :: Id -> Label
 entryLabel procName = '_' : procName
 
@@ -317,14 +250,16 @@ entryLabel procName = '_' : procName
 --   asserting the given expression.
 data Assertion a = Assertion Label KEnv (Exp a)
 
+-- | Convert a procedure into a CFG, collecting all assertions along the way.
+--   The returned label is the procedure entry point.
 toCfg :: KEnv -> Procedure SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
 toCfg env proc =
-  let loc = procedureSyntaxAnnotation proc in f (Just (entryLabel (procedureName proc))) Nothing $ [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc] ++ [procedureBody proc, Return loc Nothing]
+  blockToCfg (Just (entryLabel (procedureName proc))) Nothing $ [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc] ++ [procedureBody proc, Return (procedureSyntaxAnnotation proc) Nothing]
   where
-    localNames proc = [v | VarDecl _ v _ <- procedureLocals proc]
+    localNames = [v | VarDecl _ v _ <- procedureLocals proc]
 
     innerEnv :: KEnv
-    innerEnv = M.union (M.fromList [(param, KProcedureLocalVar) | param <- procedureParameters proc ++ localNames proc]) env
+    innerEnv = M.union (M.fromList [(param, KProcedureLocalVar) | param <- procedureParameters proc ++ localNames]) env
 
     labelFor :: SourceLocation -> NamesOp Label
     labelFor loc = freshName ("_line_" ++ pad 5 '0' (show (line loc)))
@@ -343,17 +278,17 @@ toCfg env proc =
       SimpleAwait (EBinaryOp a Or (EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)) (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))),
       SimpleAssignDet actorVar (EThreadID a)]
 
-    f :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-    f here Nothing [] = do
+    blockToCfg :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
+    blockToCfg here Nothing [] = do
       -- no `next` label: return from this call
-      f here Nothing [Return noLocation Nothing]
-    f here (Just next) [] = do
+      blockToCfg here Nothing [Return noLocation Nothing]
+    blockToCfg _ (Just next) [] = do
       -- nothing to do, but there is a `next` label: goto next
       return (M.empty, [], next)
-    f here next (Seq _ a b : k) = do
-      f here next (a : b : k)
-    f here next (Skip _ : k) = f here next k
-    f here _ (Return loc maybeRet : _) = do
+    blockToCfg here next (Seq _ a b : k) = do
+      blockToCfg here next (a : b : k)
+    blockToCfg here next (Skip _ : k) = blockToCfg here next k
+    blockToCfg here _ (Return loc maybeRet : _) = do
       label <- pickLabelIfNoneChosen here loc
       ret <- case maybeRet of
         Just e -> fixReads innerEnv e
@@ -365,20 +300,20 @@ toCfg env proc =
           setPc (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])]),
         [],
         label)
-    f here next (CallAndSaveReturnValue loc lval procName args : k) = do
-      f here next $ Call loc procName args : Assign loc lval (EVar loc retVar) : k
-    f here next (Yield _ : rest@(Await _ _ : _)) = do
+    blockToCfg here next (CallAndSaveReturnValue loc lval procName args : k) = do
+      blockToCfg here next $ Call loc procName args : Assign loc lval (EVar loc retVar) : k
+    blockToCfg here next (Yield _ : rest@(Await _ _ : _)) = do
       -- "await" has an implicit yield, so we can eliminate redundant yields
-      f here next rest
-    f here next (s : k) = do
+      blockToCfg here next rest
+    blockToCfg here next (s : k) = do
       let loc = getAnnotation s
       label <- pickLabelIfNoneChosen here loc
-      (nextCfg, assertions2, nextLabel) <- f Nothing next k
-      (rest, assertions1, body) <- core label nextLabel s
+      (nextCfg, assertions2, nextLabel) <- blockToCfg Nothing next k
+      (rest, assertions1, body) <- stmToCfg label nextLabel s
       return (M.insert label (innerEnv, commonPrefix loc label ++ body) (M.union rest nextCfg), assertions1 ++ assertions2, label)
 
     rec :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-    rec next s = f Nothing (Just next) [s]
+    rec next s = blockToCfg Nothing (Just next) [s]
 
     myPc = EIndex noLocation (EVar noLocation pcVar) (EThreadID noLocation)
     setMy f var val = f var (EExcept noLocation (EVar noLocation var) (EThreadID noLocation) val)
@@ -388,44 +323,44 @@ toCfg env proc =
     goto :: Label -> SimpleInstr SourceLocation
     goto l = setPc (replaceTop myPc (EStr noLocation l))
 
-    core :: Label -> Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], [SimpleInstr SourceLocation])
-    core here next s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
-    core here next s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
-    core here next s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
-    core here next s@(Skip _) = errorAt s $ "internal bug: skip case is supposed to be handled elsewhere"
-    core here next (Assert loc e) = do
+    stmToCfg :: Label -> Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], [SimpleInstr SourceLocation])
+    stmToCfg _ _ s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
+    stmToCfg _ _ s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
+    stmToCfg _ _ s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
+    stmToCfg _ _ s@(Skip _) = errorAt s $ "internal bug: skip case is supposed to be handled elsewhere"
+    stmToCfg here next (Assert _ e) = do
       return (M.empty, [Assertion here innerEnv e], [goto next])
-    core here next (Yield loc) = do
+    stmToCfg _ next (Yield loc) = do
       return (M.empty, [], [clearActor loc, goto next])
-    core here next (Either loc stms) = do
+    stmToCfg _ next (Either loc stms) = do
       newPc <- freshName "_newPc"
       stms' <- mapM (rec next) stms
       let (cfgs, assertions, labels) = unzip3 stms'
       return (M.unions cfgs, concat assertions, [SimpleAssignNonDet newPc (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), setPc (EVar loc newPc)])
-    core here next s@(Assign loc lval e) = do
+    stmToCfg _ next (Assign _ lval e) = do
       e' <- fixReads innerEnv e
       (v, v') <- asSimpleAssignment innerEnv lval e'
       return (M.empty, [], [SimpleAssignDet v v', goto next])
-    core here next s@(NondeterministicAssign loc lval set pred) = do
+    stmToCfg _ next (NondeterministicAssign loc lval set predicate) = do
       x <- freshName "_choice"
       set' <- fixReads innerEnv set
       (v, v') <- asSimpleAssignment innerEnv lval (EVar loc x)
-      pred' <- fixReads innerEnv pred
-      return (M.empty, [], [SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait pred', goto next])
-    core here next (Await loc e) = do
+      predicate' <- fixReads innerEnv predicate
+      return (M.empty, [], [SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate', goto next])
+    stmToCfg _ next (Await loc e) = do
       mid <- labelFor loc
       e' <- fixReads innerEnv e
       return (M.singleton mid (innerEnv, commonPrefix loc mid ++ [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
-    core here next (If loc cond thenBranch elseBranch) = do
+    stmToCfg _ next (If loc cond thenBranch elseBranch) = do
       cond' <- fixReads innerEnv cond
       (thenCfg, a1, thenEntry) <- rec next thenBranch
       (elseCfg, a2, elseEntry) <- rec next elseBranch
       return (M.union thenCfg elseCfg, a1 ++ a2, [setPc (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
-    core here next (While loc cond body) = do
+    stmToCfg here next (While loc cond body) = do
       cond' <- fixReads innerEnv cond
       (bodyCfg, assertions, bodyEntry) <- rec here body
       return (bodyCfg, assertions, [setPc (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
-    core here next s@(Call loc procName args) = do
+    stmToCfg _ next s@(Call loc procName args) = do
       case M.lookup procName innerEnv of
         Just (KProcedure paramNames) | length paramNames /= length args -> do
           errorAt s $ "Incorrect number of arguments for call to " ++ show procName ++ " (expects " ++ show (length paramNames) ++ ", got " ++ show (length args) ++ ")"
@@ -475,9 +410,9 @@ convertTransition name (kenv, instrs) = do
       return $ (indent ++ "/\\ " ++ e') : rest'
     steps indent changed env (SimpleAssignDet v e : rest) = do
       tmp <- freshName "_tmp"
-      rest <- steps (increaseIndent indent) (S.insert v changed) (M.insert v tmp env) rest
+      rest' <- steps (increaseIndent indent) (S.insert v changed) (M.insert v tmp env) rest
       e' <- exp2tla env e
-      return $ (indent ++ "/\\ LET " ++ tmp ++ " == " ++ e' ++ " IN") : rest
+      return $ (indent ++ "/\\ LET " ++ tmp ++ " == " ++ e' ++ " IN") : rest'
     steps indent changed env (SimpleAssignNonDet v e : rest) = do
       set <- exp2tla env e
       tmp <- freshName "_tmp"
