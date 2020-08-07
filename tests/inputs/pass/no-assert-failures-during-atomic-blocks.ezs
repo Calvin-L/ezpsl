@@ -1,0 +1,16 @@
+\* CFG CONSTANT main_calls = {A, B}
+\* CFG CONSTANT safety_calls = {C}
+
+var x := 0;
+
+@entry
+proc main() {
+    x := 1;
+    x := 2;
+    x := 1;
+}
+
+@entry
+proc safety() {
+    assert x /= 2;
+}

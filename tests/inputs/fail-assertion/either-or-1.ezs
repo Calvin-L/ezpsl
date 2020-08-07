@@ -13,6 +13,7 @@ proc main() {
     } or {
         x := 3;
     }
+    yield;
     x := 4;
 }
 

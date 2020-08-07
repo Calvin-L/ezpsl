@@ -64,7 +64,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         ++ case assertionConditions of
           [] -> ["NoAssertionFailures == TRUE"]
           _ -> ["NoAssertionFailures == \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}:"]
-            ++ ["    /\\ " ++ e | e <- assertionConditions]
+            ++ ["    /\\ (" ++ actorVar ++ " \\in {_Undefined, " ++ selfConstant ++ "}) => (" ++ e ++ ")" | e <- assertionConditions]
 
 namesOfEntryProcedures :: [Procedure a] -> S.Set Id
 namesOfEntryProcedures = (S.fromList) . catMaybes . (map asEntryPoint)

@@ -109,7 +109,7 @@ Next ==
     \/ _halt(_pid)
     \/ _finished
 NoAssertionFailures == \A self \in UNION {main_calls, test_calls}:
-    /\ (((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_test")) => ok)
+    /\ (_actor \in {_Undefined, self}) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_test")) => ok))
 \* /include Assertions.ezs
 
 =====================

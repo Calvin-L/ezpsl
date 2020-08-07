@@ -81,7 +81,7 @@ Next ==
     \/ _halt(_pid)
     \/ _finished
 NoAssertionFailures == \A self \in UNION {main_calls}:
-    /\ (((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_line_00008")) => FALSE)
+    /\ (_actor \in {_Undefined, self}) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_line_00008")) => FALSE))
 \* /include While.ezs
 
 =====================

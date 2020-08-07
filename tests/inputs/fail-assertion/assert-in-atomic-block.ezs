@@ -1,0 +1,12 @@
+\* CFG CONSTANT main_calls = {A, B}
+
+var x := 0;
+
+@entry
+proc main() {
+    var y := 2;
+    x := 1;
+    x := 2;
+    assert x /= y;
+    x := 1;
+}
