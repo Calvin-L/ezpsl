@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Control.Monad (forM_)
-import Data.List (isSuffixOf, isInfixOf)
+import Data.List (isSuffixOf, isInfixOf, sort)
 import Data.Maybe (catMaybes)
 import System.Directory (getDirectoryContents)
 import System.IO (withFile, IOMode(WriteMode))
@@ -34,7 +34,7 @@ main = hspec $ do
   let okDir = "tests/inputs/pass" -- relative to project root
   okToCheck <- runIO $ do
     allEntries <- getDirectoryContents okDir
-    return [f | f <- allEntries, ".ezs" `isSuffixOf` f]
+    return $ sort [f | f <- allEntries, ".ezs" `isSuffixOf` f]
   describe ("Testing files in " ++ okDir) $ do
     forM_ okToCheck (\fileName -> do
       it ("passes " ++ fileName) $ checkFile (okDir ++ "/" ++ fileName) `shouldReturn` True)
@@ -42,7 +42,7 @@ main = hspec $ do
   let failDir = "tests/inputs/fail-assertion" -- relative to project root
   failToCheck <- runIO $ do
     allEntries <- getDirectoryContents failDir
-    return [f | f <- allEntries, ".ezs" `isSuffixOf` f]
+    return $ sort [f | f <- allEntries, ".ezs" `isSuffixOf` f]
   describe ("Testing files in " ++ failDir) $ do
     forM_ failToCheck (\fileName -> do
       it ("finds assertion violation in " ++ fileName) $ checkFile (failDir ++ "/" ++ fileName) `shouldReturn` False)
