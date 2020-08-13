@@ -1,6 +1,7 @@
 module CompileToTLA (TLACode, ezpsl2tla) where
 
 import Data.Maybe (catMaybes)
+import Data.List (sortOn)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Char (isAlpha)
@@ -17,8 +18,8 @@ import Misc (join, pad)
 ezpsl2tla :: (MonadFail m) => Module SourceLocation -> m TLACode
 ezpsl2tla m@(Module _ vars procs) = do
   let env = mkEnv m
-  let entryProcedureNames = S.toList (namesOfEntryProcedures procs)
-  case entryProcedureNames of
+  let entryProcedures = sortOn procedureName $ findEntryProcedures procs
+  case entryProcedures of
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
       initialValues <- mapM (\(VarDecl _ _ e) -> exp2tla (M.empty) e) vars
@@ -28,7 +29,8 @@ ezpsl2tla m@(Module _ vars procs) = do
         let bigCfg = M.unions cfgs
         transitions <- mapM (uncurry convertTransition) (M.toList bigCfg)
         return (bigCfg, labels, transitions, concat asserts)
-      let pidSets = [p ++ "_calls" | p <- entryProcedureNames]
+      let entryPointsByName = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs procedureEntryLabels]
+      let pidSets = [procedureName p ++ "_calls" | p <- entryProcedures]
       let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
       assertionConditions <- mapM (\(Assertion label kenv e) -> do
         e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation And (EBinaryOp noLocation Ne (EVar noLocation pcVar) (EMkTuple noLocation [])) (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label))) e)
@@ -39,7 +41,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         "vars == <<" ++ join ", " allVars ++ ">>",
         "symmetry == UNION {" ++ join ", " ["Permutations(" ++ p ++ ")" | p <- pidSets] ++ "}",
         "Init =="]
-        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ "_calls |-> <<" ++ show pEntry ++ ">>]" | (p, pEntry) <- zip entryProcedureNames procedureEntryLabels]]
+        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ pset ++ " |-> <<" ++ show pEntry ++ ">>]" | (pset, p) <- zip pidSets entryProcedures, let Just pEntry = M.lookup (procedureName p) entryPointsByName]]
         ++ ["  /\\ " ++ framesVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> << <<>> >>]" | p <- pidSets]]
         ++ ["  /\\ " ++ retVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> " ++ undefinedConstant ++ "]" | p <- pidSets]]
         ++ ["  /\\ " ++ actorVar ++ " = " ++ undefinedConstant]
@@ -66,13 +68,11 @@ ezpsl2tla m@(Module _ vars procs) = do
           _ -> ["NoAssertionFailures == \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}:"]
             ++ ["    /\\ (" ++ actorVar ++ " \\in {_Undefined, " ++ selfConstant ++ "}) => (" ++ e ++ ")" | e <- assertionConditions]
 
-namesOfEntryProcedures :: [Procedure a] -> S.Set Id
-namesOfEntryProcedures = (S.fromList) . catMaybes . (map asEntryPoint)
+findEntryProcedures :: [Procedure a] -> [Procedure a]
+findEntryProcedures = filter isEntryPoint
   where
-    asEntryPoint :: Procedure a -> Maybe Id
-    asEntryPoint p
-      | EntryPoint `elem` (procedureAnnotations p) = Just (procedureName p)
-      | otherwise = Nothing
+    isEntryPoint :: Procedure a -> Bool
+    isEntryPoint p = EntryPoint `elem` (procedureAnnotations p)
 
 type TLACode = String
 

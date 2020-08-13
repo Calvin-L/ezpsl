@@ -1,0 +1,18 @@
+\* CFG CONSTANT one_calls = {A, B}
+\* CFG CONSTANT two_calls = {C}
+
+\* This test checks for a previously-existing bug where a module with two entry
+\* procedures would use the first two procedures as the entry points instead of
+\* the actual annotated procedures.
+
+@entry
+proc one() {
+}
+
+proc unused() {
+    assert FALSE;
+}
+
+@entry
+proc two() {
+}
