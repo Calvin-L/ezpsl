@@ -8,6 +8,7 @@ import Data.Char (isAlpha)
 
 import Data.Annotated (Annotated, getAnnotation)
 import Data.SourceLocation (SourceLocation(SourceLocation), line, column)
+import Data.Maybe (fromJust)
 import Language.EzPSL.Syntax
 import Language.EzPSL.Transform (transformBottomUp)
 import Names (NamesOp, runNamesOp, freshName)
@@ -23,12 +24,13 @@ ezpsl2tla m@(Module _ vars procs) = do
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
       initialValues <- mapM (\(VarDecl _ _ e) -> exp2tla (M.empty) e) vars
-      (bigCfg, procedureEntryLabels, transitions, assertions) <- runNamesOp $ do
-        compiled <- mapM (toCfg env) procs
-        let (cfgs, asserts, labels) = unzip3 compiled
-        let bigCfg = M.unions cfgs
-        transitions <- mapM (uncurry convertTransition) (M.toList bigCfg)
-        return (bigCfg, labels, transitions, concat asserts)
+      (allTransitions, procedureEntryLabels, transitions, assertions) <- runNamesOp $ do
+        compiled <- mapM (procToTransitions env) procs
+        let (transitionSets, asserts, labels) = unzip3 compiled
+        let procForId procName = fromJust $ lookup procName $ zip (map procedureName procs) labels
+        let allTransitions = concatMap (\tn -> tn procForId) transitionSets
+        convertedTransitions <- mapM (convertTransition env) allTransitions
+        return (allTransitions, labels, convertedTransitions, concat asserts)
       let entryPointsByName = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs procedureEntryLabels]
       let pidSets = [procedureName p ++ "_calls" | p <- entryProcedures]
       let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
@@ -60,7 +62,7 @@ ezpsl2tla m@(Module _ vars procs) = do
             "  /\\ \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}: " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
             "  /\\ UNCHANGED <<" ++ join ", " allVars ++ ">>"]
         ++ ["Next ==", "  \\E _pid \\in UNION {" ++ join ", " pidSets ++ "}:"]
-        ++ ["    \\/ " ++ label ++ "(_pid)" | (label, _) <- M.toList bigCfg]
+        ++ ["    \\/ " ++ label ++ "(_pid)" | (label, _) <- allTransitions]
         ++ ["    \\/ _halt(_pid)"]
         ++ ["    \\/ _finished"]
         ++ case assertionConditions of
@@ -222,9 +224,32 @@ data SimpleInstr a
   | SimpleAssignNonDet Id (Exp a)
   deriving (Show)
 
-type Label = String
-type CFGNode a = (KEnv, [SimpleInstr a])
-type CFG a = M.Map Label (CFGNode a)
+-- | A program counter label.
+type PCLabel = String
+
+type TransitionName = Id
+
+-- | An atomic transition, expressed as a list of instructions with a unique
+--   name.
+type NamedTransition a = (TransitionName, [SimpleInstr a])
+
+-- | A set of possible transitions that implement some kind of sequential
+--   logic.  The transitions are "incomplete" in the sense that they do not
+--   know how to jump into procedures nor what to do after the sequential logic
+--   has completed, and must be supplied with that information.
+type IncompleteTransitionSet a = (Id -> PCLabel) -> [SimpleInstr a] -> [NamedTransition a]
+
+singleIncompleteTransition :: TransitionName -> ((Id -> PCLabel) -> [SimpleInstr a] -> [SimpleInstr a]) -> IncompleteTransitionSet a
+singleIncompleteTransition name instrs = \procs k -> [(name, instrs procs k)]
+
+unionTransitionSets :: [IncompleteTransitionSet a] -> IncompleteTransitionSet a
+unionTransitionSets l = \procs k -> concatMap (\ts -> ts procs k) l
+
+-- andThen :: SequenceableTransitionSet a -> SequenceableTransitionSet a -> SequenceableTransitionSet a
+-- andThen (aEntry, a) (bEntry, b) = (aEntry, \k ->
+--   let b' = b k in
+--   let a' = a bEntry in
+--   a' ++ b')
 
 noLocation :: SourceLocation
 noLocation = SourceLocation 0 0
@@ -244,135 +269,176 @@ replaceTop stack newTop =
   let a = getAnnotation stack in
   EBinaryOp a Concat (pop 1 stack) (EMkTuple a [newTop])
 
-entryLabel :: Id -> Label
-entryLabel procName = '_' : procName
+-- entryLabel :: Id -> PCLabel
+-- entryLabel procName = '_' : procName
 
 -- | Details about an assertion: when a process is at the given label, it is
 --   asserting the given expression.
-data Assertion a = Assertion Label KEnv (Exp a)
+data Assertion a = Assertion PCLabel KEnv (Exp a)
+
+doReturn :: SourceLocation -> [SimpleInstr SourceLocation]
+doReturn a = [
+  setMy SimpleAssignDet framesVar (pop 1 (EIndex a (EVar a framesVar) (EThreadID a))),
+  setPc (ECall a "SubSeq" [myPc, EInt a 1, EBinaryOp a Minus (ECall a "Len" [myPc]) (EInt a 1)])]
 
 -- | Convert a procedure into a CFG, collecting all assertions along the way.
 --   The returned label is the procedure entry point.
-toCfg :: KEnv -> Procedure SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-toCfg env proc =
-  blockToCfg (Just (entryLabel (procedureName proc))) Nothing $ [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc] ++ [procedureBody proc, Return (procedureSyntaxAnnotation proc) Nothing]
+procToTransitions :: KEnv -> Procedure SourceLocation -> NamesOp ((Id -> PCLabel) -> [NamedTransition SourceLocation], [Assertion SourceLocation], PCLabel)
+procToTransitions env proc = do
+  (entry, incomplete, assertions) <- stmToTransitions innerEnv $ foldr (Seq noLocation) (procedureBody proc) [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc]
+  let implicitReturn = doReturn noLocation
+  let {transitions procs = incomplete procs implicitReturn}
+  return (transitions, assertions, entry)
+
   where
+    localNames :: [Id]
     localNames = [v | VarDecl _ v _ <- procedureLocals proc]
 
     innerEnv :: KEnv
     innerEnv = M.union (M.fromList [(param, KProcedureLocalVar) | param <- procedureParameters proc ++ localNames]) env
 
-    labelFor :: SourceLocation -> NamesOp Label
-    labelFor loc = freshName ("_line_" ++ pad 5 '0' (show (line loc)))
+labelFor :: SourceLocation -> NamesOp PCLabel
+labelFor loc = freshName ("_line_" ++ pad 5 '0' (show (line loc)))
 
-    pickLabelIfNoneChosen :: Maybe Label -> SourceLocation -> NamesOp Label
-    pickLabelIfNoneChosen (Just l) _ = return l
-    pickLabelIfNoneChosen Nothing loc = labelFor loc
+-- | Common instructions on every statement transition that wait for
+--    1. the PC to be correct
+--    2. the actor to be correct
+commonPrefix :: SourceLocation -> PCLabel -> [SimpleInstr SourceLocation]
+commonPrefix a label = [
+  SimpleAwait (EBinaryOp a Gt (ECall a "Len" [myPc]) (EInt a 0)),
+  SimpleAwait (EBinaryOp a Eq (EIndex a myPc (ECall a "Len" [myPc])) (EStr a label)),
+  SimpleAwait (EBinaryOp a Or (EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)) (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))),
+  SimpleAssignDet actorVar (EThreadID a)]
 
-    -- | Common instructions that wait for
-    --    1. the PC to be correct
-    --    2. the actor to be correct
-    commonPrefix :: SourceLocation -> Label -> [SimpleInstr SourceLocation]
-    commonPrefix a label = [
-      SimpleAwait (EBinaryOp a Gt (ECall a "Len" [myPc]) (EInt a 0)),
-      SimpleAwait (EBinaryOp a Eq (EIndex a myPc (ECall a "Len" [myPc])) (EStr a label)),
-      SimpleAwait (EBinaryOp a Or (EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)) (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))),
-      SimpleAssignDet actorVar (EThreadID a)]
+readProcessLocal :: a -> Id -> Exp a
+readProcessLocal a x = EIndex a (EVar a x) (EThreadID a)
 
-    blockToCfg :: Maybe Label -> Maybe Label -> [Stm SourceLocation] -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-    blockToCfg here Nothing [] = do
-      -- no `next` label: return from this call
-      blockToCfg here Nothing [Return noLocation Nothing]
-    blockToCfg _ (Just next) [] = do
-      -- nothing to do, but there is a `next` label: goto next
-      return (M.empty, [], next)
-    blockToCfg here next (Seq _ a b : k) = do
-      blockToCfg here next (a : b : k)
-    blockToCfg here next (Skip _ : k) = blockToCfg here next k
-    blockToCfg here _ (Return loc maybeRet : _) = do
-      label <- pickLabelIfNoneChosen here loc
-      ret <- case maybeRet of
-        Just e -> fixReads innerEnv e
-        Nothing -> return (EVar loc undefinedConstant)
-      return (M.singleton label (innerEnv,
-          commonPrefix loc label ++ [
-          setMy SimpleAssignDet retVar ret,
-          setMy SimpleAssignDet framesVar (pop 1 (EIndex loc (EVar loc framesVar) (EThreadID loc))),
-          setPc (ECall loc "SubSeq" [myPc, EInt loc 1, EBinaryOp loc Minus (ECall loc "Len" [myPc]) (EInt loc 1)])]),
-        [],
-        label)
-    blockToCfg here next (CallAndSaveReturnValue loc lval procName args : k) = do
-      blockToCfg here next $ Call loc procName args : Assign loc lval (EVar loc retVar) : k
-    blockToCfg here next (Yield _ : rest@(Await _ _ : _)) = do
-      -- "await" has an implicit yield, so we can eliminate redundant yields
-      blockToCfg here next rest
-    blockToCfg here next (s : k) = do
-      let loc = getAnnotation s
-      label <- pickLabelIfNoneChosen here loc
-      (nextCfg, assertions2, nextLabel) <- blockToCfg Nothing next k
-      (rest, assertions1, body) <- stmToCfg label nextLabel s
-      return (M.insert label (innerEnv, commonPrefix loc label ++ body) (M.union rest nextCfg), assertions1 ++ assertions2, label)
+-- NOT correct, hard to get right
+-- writeProcessLocalNonDet :: a -> Id -> Exp a -> SimpleInstr a
+-- writeProcessLocalNonDet a x val = SimpleAssignNonDet x (EExcept a (EVar a x) (EThreadID a) val)
 
-    rec :: Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], Label)
-    rec next s = blockToCfg Nothing (Just next) [s]
+myPc :: Exp SourceLocation
+myPc = readProcessLocal noLocation pcVar
 
-    myPc = EIndex noLocation (EVar noLocation pcVar) (EThreadID noLocation)
-    setMy f var val = f var (EExcept noLocation (EVar noLocation var) (EThreadID noLocation) val)
-    setPc = setMy SimpleAssignDet pcVar
-    clearActor loc = SimpleAssignDet actorVar (EVar loc undefinedConstant)
+setMy :: (Id -> Exp SourceLocation -> SimpleInstr SourceLocation) -> Id -> Exp SourceLocation ->  SimpleInstr SourceLocation
+setMy f var val = f var (EExcept noLocation (EVar noLocation var) (EThreadID noLocation) val)
 
-    goto :: Label -> SimpleInstr SourceLocation
-    goto l = setPc (replaceTop myPc (EStr noLocation l))
+setPc :: Exp SourceLocation -> SimpleInstr SourceLocation
+setPc = setMy SimpleAssignDet pcVar
 
-    stmToCfg :: Label -> Label -> Stm SourceLocation -> NamesOp (CFG SourceLocation, [Assertion SourceLocation], [SimpleInstr SourceLocation])
-    stmToCfg _ _ s@(Seq _ _ _) = errorAt s $ "internal bug: sequence case is supposed to be handled elsewhere"
-    stmToCfg _ _ s@(Return _ _) = errorAt s $ "internal bug: return case is supposed to be handled elsewhere"
-    stmToCfg _ _ s@(CallAndSaveReturnValue _ _ _ _) = errorAt s $ "internal bug: call-and-return case is supposed to be handled elsewhere"
-    stmToCfg _ _ s@(Skip _) = errorAt s $ "internal bug: skip case is supposed to be handled elsewhere"
-    stmToCfg here next (Assert _ e) = do
-      return (M.empty, [Assertion here innerEnv e], [goto next])
-    stmToCfg _ next (Yield loc) = do
-      return (M.empty, [], [clearActor loc, goto next])
-    stmToCfg _ next (Await loc e) = do
-      mid <- labelFor loc
-      e' <- fixReads innerEnv e
-      return (M.singleton mid (innerEnv, commonPrefix loc mid ++ [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
-    stmToCfg _ next (Either loc stms) = do
-      newPc <- freshName "_newPc"
-      stms' <- mapM (rec next) stms
-      let (cfgs, assertions, labels) = unzip3 stms'
-      return (M.unions cfgs, concat assertions, [SimpleAssignNonDet newPc (EMkSet loc [replaceTop myPc (EStr loc label) | label <- labels]), setPc (EVar loc newPc)])
-    stmToCfg _ next (Assign _ lval e) = do
-      e' <- fixReads innerEnv e
-      (v, v') <- asSimpleAssignment innerEnv lval e'
-      return (M.empty, [], [SimpleAssignDet v v', goto next])
-    stmToCfg _ next (NondeterministicAssign loc lval set predicate) = do
-      x <- freshName "_choice"
-      set' <- fixReads innerEnv set
-      (v, v') <- asSimpleAssignment innerEnv lval (EVar loc x)
-      predicate' <- fixReads innerEnv predicate
-      return (M.empty, [], [SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate', goto next])
-    stmToCfg _ next (If loc cond thenBranch elseBranch) = do
-      cond' <- fixReads innerEnv cond
-      (thenCfg, a1, thenEntry) <- rec next thenBranch
-      (elseCfg, a2, elseEntry) <- rec next elseBranch
-      return (M.union thenCfg elseCfg, a1 ++ a2, [setPc (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))])
-    stmToCfg here next (While loc cond body) = do
-      cond' <- fixReads innerEnv cond
-      (bodyCfg, assertions, bodyEntry) <- rec here body
-      return (bodyCfg, assertions, [setPc (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc next)))])
-    stmToCfg _ next s@(Call loc procName args) = do
-      case M.lookup procName innerEnv of
-        Just (KProcedure paramNames) | length paramNames /= length args -> do
-          errorAt s $ "Incorrect number of arguments for call to " ++ show procName ++ " (expects " ++ show (length paramNames) ++ ", got " ++ show (length args) ++ ")"
-        Just (KProcedure paramNames) -> do
-          args' <- mapM (fixReads innerEnv) args
-          myFrames <- fixReads innerEnv (EVar noLocation framesVar)
-          return (M.empty, [], [
-            setMy SimpleAssignDet framesVar (EBinaryOp noLocation Concat myFrames (EMkTuple loc [EMkRecord noLocation (zip paramNames args')])),
-            setPc (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (entryLabel procName)]))])
-        Just _ -> errorAt s $ "Cannot call variable " ++ show procName
-        Nothing -> errorAt s $ "There is no procedure named " ++ show procName
+gotoDynamic :: Exp SourceLocation -> SimpleInstr SourceLocation
+gotoDynamic l = setPc (replaceTop myPc l)
+
+goto :: PCLabel -> SimpleInstr SourceLocation
+goto l = gotoDynamic (EStr noLocation l)
+
+clearActor :: a -> SimpleInstr a
+clearActor a = SimpleAssignDet actorVar (EVar a undefinedConstant)
+
+mkStatementTransition :: SourceLocation
+                      -> PCLabel
+                      -> ([SimpleInstr SourceLocation] -> [SimpleInstr SourceLocation])
+                      -> IncompleteTransitionSet SourceLocation
+mkStatementTransition loc label instrs =
+  singleIncompleteTransition label (\_ next ->
+    commonPrefix loc label ++ instrs next)
+
+stmToTransitions :: KEnv -> Stm SourceLocation -> NamesOp (PCLabel, IncompleteTransitionSet SourceLocation, [Assertion SourceLocation])
+stmToTransitions kenv (Seq _ a b) = do
+  (aLabel, aTransitions, aAssertions) <- stmToTransitions kenv a
+  (bLabel, bTransitions, bAssertions) <- stmToTransitions kenv b
+  return (aLabel, \procs k -> aTransitions procs [goto bLabel] ++ bTransitions procs k, aAssertions ++ bAssertions)
+stmToTransitions _ (Skip loc) = do
+  label <- labelFor loc
+  return (label, mkStatementTransition loc label id, [])
+stmToTransitions kenv (Assert loc e) = do
+  label <- labelFor loc
+  return (label, mkStatementTransition loc label id, [Assertion label kenv e])
+stmToTransitions kenv (Yield loc) = do
+  stmToTransitions kenv (Await loc $ EBool loc True)
+stmToTransitions kenv (Await loc e) = do
+  labelYield <- labelFor loc
+  e' <- fixReads kenv e
+  labelResume <- labelFor loc
+  let a = mkStatementTransition loc labelYield (const [clearActor loc, goto labelResume])
+  let b = mkStatementTransition loc labelResume ([SimpleAwait e']++)
+  return (labelYield, unionTransitionSets [a, b], [])
+stmToTransitions kenv (Either loc stms) = do
+  label <- labelFor loc
+  x <- freshName "_newPc"
+  stms' <- mapM (stmToTransitions kenv) stms
+  let (successorLabels, incompleteTransitions, assertions) = unzip3 stms'
+  let {instrs = [
+    SimpleAssignNonDet x (EMkSet loc [EStr loc successorLabel | successorLabel <- successorLabels]),
+    gotoDynamic (EVar loc x)]}
+  return (label, unionTransitionSets (mkStatementTransition loc label (const instrs) : incompleteTransitions), concat assertions)
+stmToTransitions kenv (Assign loc lval e) = do
+  stmToTransitions kenv (NondeterministicAssign loc lval (EMkSet loc [e]) (EBool loc True))
+stmToTransitions kenv (NondeterministicAssign loc lval set predicate) = do
+  x <- freshName "_choice"
+  label <- labelFor loc
+  set' <- fixReads kenv set
+  predicate' <- fixReads kenv predicate
+  (v, v') <- asSimpleAssignment kenv lval (EVar loc x)
+  return (label, mkStatementTransition loc label ([SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate']++), [])
+stmToTransitions kenv (If loc cond thenBranch elseBranch) = do
+  label <- labelFor loc
+  cond' <- fixReads kenv cond
+  (thenEntry, thenTransitions, thenAssertions) <- stmToTransitions kenv thenBranch
+  (elseEntry, elseTransitions, elseAssertions) <- stmToTransitions kenv elseBranch
+  let instrs = [setPc (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))]
+  return (label, unionTransitionSets [mkStatementTransition loc label (const instrs), thenTransitions, elseTransitions], thenAssertions ++ elseAssertions)
+stmToTransitions kenv (While loc cond body) = do
+  label <- labelFor loc
+  cond' <- fixReads kenv cond
+  (bodyEntry, bodyTransitions, bodyAssertions) <- stmToTransitions kenv body
+  exitLabel <- labelFor loc
+  let instrs = [setPc (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc exitLabel)))]
+  return (label, unionTransitionSets [
+    mkStatementTransition loc label (const instrs),
+    \procs _ -> bodyTransitions procs [goto label],
+    mkStatementTransition loc exitLabel id
+    ], bodyAssertions)
+stmToTransitions kenv s@(Call loc procName args) = do
+  callToTransitions kenv s loc procName args (const $ return [])
+stmToTransitions kenv s@(CallAndSaveReturnValue loc outLVal procName args) = do
+  callToTransitions kenv s loc procName args (\ret -> do
+    (v, v') <- asSimpleAssignment kenv outLVal ret
+    return [SimpleAssignDet v v'])
+stmToTransitions kenv (Return loc maybeRet) = do
+  label <- labelFor loc
+  ret <- case maybeRet of
+    Just e -> fixReads kenv e
+    Nothing -> return (EVar loc undefinedConstant)
+  let {instrs = [setMy SimpleAssignDet retVar ret] ++ doReturn loc}
+  return (label, mkStatementTransition loc label (const instrs), [])
+
+callToTransitions :: KEnv
+                  -> Stm SourceLocation
+                  -> SourceLocation
+                  -> Id
+                  -> [Exp SourceLocation]
+                  -> (Exp SourceLocation -> NamesOp [SimpleInstr SourceLocation])
+                  -> NamesOp (PCLabel, IncompleteTransitionSet SourceLocation, [Assertion SourceLocation])
+callToTransitions kenv s loc procName args useReturnValue = do
+  case M.lookup procName kenv of
+    Just (KProcedure paramNames) | length paramNames /= length args -> do
+      errorAt s $ "Incorrect number of arguments for call to " ++ show procName ++ " (expects " ++ show (length paramNames) ++ ", got " ++ show (length args) ++ ")"
+    Just (KProcedure paramNames) -> do
+      label <- labelFor loc
+      next <- labelFor loc
+      args' <- mapM (fixReads kenv) args
+      myFrames <- fixReads kenv (EVar noLocation framesVar)
+      useReturnValue' <- useReturnValue (EVar loc retVar)
+      let {instrs procs = [
+        setMy SimpleAssignDet framesVar (EBinaryOp noLocation Concat myFrames (EMkTuple loc [EMkRecord noLocation (zip paramNames args')])),
+        setPc (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (procs procName)]))]}
+      return (label, unionTransitionSets [
+        singleIncompleteTransition label (\procs _ -> commonPrefix loc label ++ instrs procs),
+        mkStatementTransition loc next (useReturnValue'++)
+        ], [])
+    Just _ -> errorAt s $ "Cannot call variable " ++ show procName
+    Nothing -> errorAt s $ "There is no procedure named " ++ show procName
 
 lval2exp :: LValue a -> Exp a
 lval2exp (LVar a v) = EVar a v
@@ -396,8 +462,8 @@ asSimpleAssignment env (LField a lval f) e =
 increaseIndent :: String -> String
 increaseIndent s = ' ' : ' ' : s
 
-convertTransition :: String -> CFGNode SourceLocation -> NamesOp TLACode
-convertTransition name (kenv, instrs) = do
+convertTransition :: KEnv -> NamedTransition SourceLocation -> NamesOp TLACode
+convertTransition kenv (name, instrs) = do
   res <- steps (increaseIndent "") (S.empty) (initialEnv kenv) instrs
   return $ join "\n" $ [name ++ "(" ++ selfConstant ++ ") =="] ++ res
   where
