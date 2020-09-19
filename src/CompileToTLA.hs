@@ -333,6 +333,10 @@ toCfg env proc =
       return (M.empty, [Assertion here innerEnv e], [goto next])
     stmToCfg _ next (Yield loc) = do
       return (M.empty, [], [clearActor loc, goto next])
+    stmToCfg _ next (Await loc e) = do
+      mid <- labelFor loc
+      e' <- fixReads innerEnv e
+      return (M.singleton mid (innerEnv, commonPrefix loc mid ++ [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
     stmToCfg _ next (Either loc stms) = do
       newPc <- freshName "_newPc"
       stms' <- mapM (rec next) stms
@@ -348,10 +352,6 @@ toCfg env proc =
       (v, v') <- asSimpleAssignment innerEnv lval (EVar loc x)
       predicate' <- fixReads innerEnv predicate
       return (M.empty, [], [SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate', goto next])
-    stmToCfg _ next (Await loc e) = do
-      mid <- labelFor loc
-      e' <- fixReads innerEnv e
-      return (M.singleton mid (innerEnv, commonPrefix loc mid ++ [SimpleAwait e', goto next]), [], [clearActor loc, goto mid])
     stmToCfg _ next (If loc cond thenBranch elseBranch) = do
       cond' <- fixReads innerEnv cond
       (thenCfg, a1, thenEntry) <- rec next thenBranch
