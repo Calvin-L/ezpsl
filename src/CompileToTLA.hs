@@ -137,6 +137,7 @@ fixReads kenv =
 
 exp2tla :: (Monad m) => Env -> Exp SourceLocation -> m TLACode
 exp2tla _ (EInt _ i) = return (show i)
+exp2tla _ (EBool _ b) = return (if b then "TRUE" else "FALSE")
 exp2tla _ (EStr _ s) = return (show s)
 exp2tla env (EVar _ v) =
   case M.lookup v env of

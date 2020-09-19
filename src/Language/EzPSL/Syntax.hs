@@ -32,6 +32,7 @@ data Quantifier
 
 data Exp a
   = EVar      a Id
+  | EBool     a Bool
   | EInt      a Integer
   | EStr      a String
   | EThreadID a
@@ -101,6 +102,7 @@ data Module a
 
 instance Annotated Exp where
   getAnnotation (EVar      a _)       = a
+  getAnnotation (EBool     a _)       = a
   getAnnotation (EInt      a _)       = a
   getAnnotation (EStr      a _)       = a
   getAnnotation (EThreadID a)         = a

@@ -4,6 +4,7 @@ import Language.EzPSL.Syntax
 
 
 transformBottomUp :: (Monad m, Show a) => (Exp a -> m (Exp a)) -> Exp a -> m (Exp a)
+transformBottomUp f e@(EBool _ _) = f e
 transformBottomUp f e@(EInt _ _) = f e
 transformBottomUp f e@(EStr _ _) = f e
 transformBottomUp f e@(EVar _ _) = f e
