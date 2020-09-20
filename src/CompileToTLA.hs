@@ -12,7 +12,7 @@ import Data.Maybe (fromJust)
 import Language.EzPSL.Syntax
 import Language.EzPSL.Transform (transformBottomUp)
 import Names (NamesOp, runNamesOp, freshName)
-import Constants (pcVar, framesVar, retVar, actorVar, selfConstant, undefinedConstant)
+import Constants (pcVar, framesVar, globalsScratchVar, retVar, actorVar, initialPc, selfConstant, undefinedConstant)
 import Misc (join, pad)
 
 
@@ -20,20 +20,20 @@ ezpsl2tla :: (MonadFail m) => Module SourceLocation -> m TLACode
 ezpsl2tla m@(Module _ vars procs) = do
   let env = mkEnv m
   let entryProcedures = sortOn procedureName $ findEntryProcedures procs
+  let pidSets = [procedureName p ++ "_calls" | p <- entryProcedures]
   case entryProcedures of
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
       initialValues <- mapM (\(VarDecl _ _ e) -> exp2tla (M.empty) e) vars
-      (allTransitions, procedureEntryLabels, transitions, assertions) <- runNamesOp $ do
+      (allTransitions, compiledTransitions, assertions) <- runNamesOp $ do
         compiled <- mapM (procToTransitions env) procs
         let (transitionSets, asserts, labels) = unzip3 compiled
-        let procForId procName = fromJust $ lookup procName $ zip (map procedureName procs) labels
-        let allTransitions = concatMap (\tn -> tn procForId) transitionSets
+        let procedureEntryLabels = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs labels]
+        let procForId procName = fromJust $ M.lookup procName procedureEntryLabels
+        let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let Just pEntry = M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets
         convertedTransitions <- mapM (convertTransition env) allTransitions
-        return (allTransitions, labels, convertedTransitions, concat asserts)
-      let entryPointsByName = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs procedureEntryLabels]
-      let pidSets = [procedureName p ++ "_calls" | p <- entryProcedures]
-      let allVars = pcVar : framesVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
+        return (allTransitions, convertedTransitions, concat asserts)
+      let allVars = pcVar : framesVar : globalsScratchVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
       assertionConditions <- mapM (\(Assertion label kenv e) -> do
         e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation And (EBinaryOp noLocation Ne (EVar noLocation pcVar) (EMkTuple noLocation [])) (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label))) e)
         exp2tla (initialEnv kenv) e') assertions
@@ -43,32 +43,53 @@ ezpsl2tla m@(Module _ vars procs) = do
         "vars == <<" ++ join ", " allVars ++ ">>",
         "symmetry == UNION {" ++ join ", " ["Permutations(" ++ p ++ ")" | p <- pidSets] ++ "}",
         "Init =="]
-        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ pset ++ " |-> <<" ++ show pEntry ++ ">>]" | (pset, p) <- zip pidSets entryProcedures, let Just pEntry = M.lookup (procedureName p) entryPointsByName]]
+        ++ ["  /\\ " ++ pcVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ pset ++ " |-> <<\"" ++ initialPc ++ "\">>]" | pset <- pidSets]]
         ++ ["  /\\ " ++ framesVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> << <<>> >>]" | p <- pidSets]]
+        ++ ["  /\\ " ++ globalsScratchVar ++ " = " ++ undefinedConstant]
         ++ ["  /\\ " ++ retVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> " ++ undefinedConstant ++ "]" | p <- pidSets]]
         ++ ["  /\\ " ++ actorVar ++ " = " ++ undefinedConstant]
         ++ ["  /\\ " ++ v ++ " = " ++ initValue | (VarDecl _ v _, initValue) <- zip vars initialValues]
-        ++ transitions
-        ++ ["_halt(" ++ selfConstant ++ ") ==",
-            "  /\\ " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
-            "  /\\ " ++ actorVar ++ " = " ++ selfConstant ++ "",
-            "  /\\ " ++ actorVar ++ "' = _Undefined",
-            "  /\\ " ++ retVar ++ "' = [" ++ retVar ++ " EXCEPT ![" ++ selfConstant ++ "] = _Undefined]",
-            "  /\\ UNCHANGED " ++ framesVar,
-            "  /\\ UNCHANGED " ++ pcVar]
+        ++ compiledTransitions
+        -- ++ ["_halt(" ++ selfConstant ++ ") ==",
+        --     "  /\\ " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
+        --     "  /\\ " ++ actorVar ++ " = " ++ selfConstant ++ "",
+        --     "  /\\ " ++ actorVar ++ "' = _Undefined",
+        --     "  /\\ " ++ retVar ++ "' = [" ++ retVar ++ " EXCEPT ![" ++ selfConstant ++ "] = _Undefined]",
+        --     "  /\\ UNCHANGED " ++ framesVar,
+        --     "  /\\ UNCHANGED " ++ pcVar]
         ++ ["  /\\ UNCHANGED " ++ v | VarDecl _ v _ <- vars]
         ++ ["\\* `_finished` prevents TLC from reporting deadlock when all processes finish normally"]
         ++ ["_finished ==",
             "  /\\ \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}: " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
             "  /\\ UNCHANGED <<" ++ join ", " allVars ++ ">>"]
         ++ ["Next ==", "  \\E _pid \\in UNION {" ++ join ", " pidSets ++ "}:"]
-        ++ ["    \\/ " ++ label ++ "(_pid)" | (label, _) <- allTransitions]
+        ++ ["    \\/ " ++ name ++ "(_pid)" | (name, _) <- allTransitions]
         ++ ["    \\/ _halt(_pid)"]
+        ++ ["    \\/ _begin_" ++ procedureName proc ++ "(_pid)" | proc <- entryProcedures]
         ++ ["    \\/ _finished"]
         ++ case assertionConditions of
           [] -> ["NoAssertionFailures == TRUE"]
           _ -> ["NoAssertionFailures == \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}:"]
-            ++ ["    /\\ (" ++ actorVar ++ " \\in {_Undefined, " ++ selfConstant ++ "}) => (" ++ e ++ ")" | e <- assertionConditions]
+            ++ ["    /\\ (" ++ actorVar ++ " = " ++ selfConstant ++ ") => (" ++ e ++ ")" | e <- assertionConditions]
+
+beginTransition :: KEnv -> Procedure SourceLocation -> Id -> PCLabel -> NamedTransition SourceLocation
+beginTransition kenv p pset entry = ("_begin_" ++ procedureName p, [
+  SimpleAwait $ EBinaryOp noLocation Eq (EVar noLocation actorVar) (EVar noLocation undefinedConstant),
+  SimpleAssignDet actorVar $ EThreadID noLocation,
+  SimpleAwait $ EBinaryOp noLocation In (EThreadID noLocation) (EVar noLocation pset),
+  SimpleAwait $ EBinaryOp noLocation Gt (ECall noLocation "Len" [myPc]) (EInt noLocation 0),
+  SimpleAwait $ EBinaryOp noLocation Eq (EIndex noLocation myPc (ECall noLocation "Len" [myPc])) (EStr noLocation initialPc),
+  goto entry]
+  ++ importGlobals noLocation kenv)
+
+haltTransition :: KEnv -> NamedTransition SourceLocation
+haltTransition kenv = ("_halt", [
+  SimpleAwait $ EBinaryOp noLocation Eq (EVar noLocation actorVar) (EThreadID noLocation),
+  SimpleAwait $ EBinaryOp noLocation Eq (readProcessLocal noLocation pcVar) (EMkTuple noLocation []),
+  SimpleAssignDet actorVar $ EVar noLocation undefinedConstant,
+  SimpleAssignDet retVar $ EExcept noLocation (EVar noLocation retVar) (EThreadID noLocation) (EVar noLocation undefinedConstant),
+  SimpleAssignDet framesVar $ EExcept noLocation (EVar noLocation framesVar) (EThreadID noLocation) (EMkRecord noLocation [])]
+  ++ exportGlobals noLocation kenv)
 
 findEntryProcedures :: [Procedure a] -> [Procedure a]
 findEntryProcedures = filter isEntryPoint
@@ -81,7 +102,8 @@ type TLACode = String
 data Kind
   = KPerProcessVar
   | KProcedureLocalVar
-  | KGlobalVar
+  | KUserDefinedGlobalVar
+  | KInternalGlobalVar
   | KProcedure [Id]
   deriving (Eq)
 
@@ -129,6 +151,8 @@ fixReads kenv =
           _ -> return e
       EVar a v ->
         case M.lookup v kenv of
+          Just KUserDefinedGlobalVar -> do
+            return $ EIndex a (EVar a globalsScratchVar) (EStr a v)
           Just KPerProcessVar -> do
             return $ EIndex a e (EThreadID a)
           Just KProcedureLocalVar -> do
@@ -269,9 +293,6 @@ replaceTop stack newTop =
   let a = getAnnotation stack in
   EBinaryOp a Concat (pop 1 stack) (EMkTuple a [newTop])
 
--- entryLabel :: Id -> PCLabel
--- entryLabel procName = '_' : procName
-
 -- | Details about an assertion: when a process is at the given label, it is
 --   asserting the given expression.
 data Assertion a = Assertion PCLabel KEnv (Exp a)
@@ -280,6 +301,17 @@ doReturn :: SourceLocation -> [SimpleInstr SourceLocation]
 doReturn a = [
   setMy SimpleAssignDet framesVar (pop 1 (EIndex a (EVar a framesVar) (EThreadID a))),
   setPc (ECall a "SubSeq" [myPc, EInt a 1, EBinaryOp a Minus (ECall a "Len" [myPc]) (EInt a 1)])]
+
+importGlobals :: SourceLocation -> KEnv -> [SimpleInstr SourceLocation]
+importGlobals loc kenv =
+  let globals = [name | (name, KUserDefinedGlobalVar) <- M.toList kenv] in
+  [SimpleAssignDet globalsScratchVar $ EMkRecord loc [(name, EVar loc name) | name <- globals]]
+
+exportGlobals :: SourceLocation -> KEnv -> [SimpleInstr SourceLocation]
+exportGlobals loc kenv =
+  let globals = [name | (name, KUserDefinedGlobalVar) <- M.toList kenv] in
+  [SimpleAssignDet name $ EIndex loc (EVar loc globalsScratchVar) (EStr noLocation name) | name <- globals] ++
+  [SimpleAssignDet globalsScratchVar (EVar loc undefinedConstant)]
 
 -- | Convert a procedure into a CFG, collecting all assertions along the way.
 --   The returned label is the procedure entry point.
@@ -300,15 +332,20 @@ procToTransitions env proc = do
 labelFor :: SourceLocation -> NamesOp PCLabel
 labelFor loc = freshName ("_line_" ++ pad 5 '0' (show (line loc)))
 
+awaitAtPc :: SourceLocation -> PCLabel -> [SimpleInstr SourceLocation]
+awaitAtPc a label = [
+  SimpleAwait (EBinaryOp a Gt (ECall a "Len" [myPc]) (EInt a 0)),
+  SimpleAwait (EBinaryOp a Eq (EIndex a myPc (ECall a "Len" [myPc])) (EStr a label))]
+
+noActor :: a -> Exp a
+noActor a = EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)
+
 -- | Common instructions on every statement transition that wait for
 --    1. the PC to be correct
 --    2. the actor to be correct
 commonPrefix :: SourceLocation -> PCLabel -> [SimpleInstr SourceLocation]
-commonPrefix a label = [
-  SimpleAwait (EBinaryOp a Gt (ECall a "Len" [myPc]) (EInt a 0)),
-  SimpleAwait (EBinaryOp a Eq (EIndex a myPc (ECall a "Len" [myPc])) (EStr a label)),
-  SimpleAwait (EBinaryOp a Or (EBinaryOp a Eq (EVar a actorVar) (EVar a undefinedConstant)) (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))),
-  SimpleAssignDet actorVar (EThreadID a)]
+commonPrefix a label = awaitAtPc a label ++ [
+  SimpleAwait (EBinaryOp a Eq (EVar a actorVar) (EThreadID a))]
 
 readProcessLocal :: a -> Id -> Exp a
 readProcessLocal a x = EIndex a (EVar a x) (EThreadID a)
@@ -360,8 +397,8 @@ stmToTransitions kenv (Await loc e) = do
   labelYield <- labelFor loc
   e' <- fixReads kenv e
   labelResume <- labelFor loc
-  let a = mkStatementTransition loc labelYield (const [clearActor loc, goto labelResume])
-  let b = mkStatementTransition loc labelResume ([SimpleAwait e']++)
+  let a = mkStatementTransition loc labelYield (const $ exportGlobals loc kenv ++ [clearActor loc, goto labelResume])
+  let b = singleIncompleteTransition labelResume (\_ k -> awaitAtPc loc labelResume ++ [SimpleAwait e', SimpleAwait (noActor loc), SimpleAssignDet actorVar (EThreadID loc)] ++ importGlobals loc kenv ++ k)
   return (labelYield, unionTransitionSets [a, b], [])
 stmToTransitions kenv (Either loc stms) = do
   label <- labelFor loc
@@ -448,7 +485,8 @@ lval2exp (LField a lval f) = EGetField a (lval2exp lval) f
 asSimpleAssignment :: (MonadFail m) => KEnv -> LValue SourceLocation -> Exp SourceLocation -> m (Id, Exp SourceLocation)
 asSimpleAssignment env lval@(LVar a v) e =
   case M.lookup v env of
-    Just KGlobalVar -> return (v, e)
+    Just KInternalGlobalVar -> return (v, e)
+    Just KUserDefinedGlobalVar -> return (globalsScratchVar, EExcept a (EVar a globalsScratchVar) (EStr a v) e)
     Just KPerProcessVar -> return (v, EExcept a (EVar a v) (EVar a selfConstant) e)
     Just KProcedureLocalVar -> asSimpleAssignment env (LField a (LIndex a (LVar a framesVar) (ECall a "Len" [EVar a framesVar])) v) e
     _ -> errorAt e $ "Cannot assign to " ++ show lval
@@ -491,7 +529,8 @@ initialEnv = M.fromList . catMaybes . map helper . M.toList
   where
     helper (v, kind) =
       case kind of
-        KGlobalVar -> Just (v, v)
+        KInternalGlobalVar -> Just (v, v)
+        KUserDefinedGlobalVar -> Just (v, v)
         KPerProcessVar -> Just (v, v)
         _ -> Nothing
 
@@ -500,7 +539,8 @@ mkEnv (Module _ vars procs) = do
   M.unions [
     M.singleton pcVar KPerProcessVar,
     M.singleton framesVar KPerProcessVar,
+    M.singleton globalsScratchVar KInternalGlobalVar,
     M.singleton retVar KPerProcessVar,
-    M.singleton actorVar KGlobalVar,
-    M.fromList [(v, KGlobalVar) | VarDecl _ v _ <- vars],
+    M.singleton actorVar KInternalGlobalVar,
+    M.fromList [(v, KUserDefinedGlobalVar) | VarDecl _ v _ <- vars],
     M.fromList [(procedureName p, KProcedure (procedureParameters p)) | p <- procs]]

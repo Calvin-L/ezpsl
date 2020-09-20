@@ -18,6 +18,12 @@ retVar = "_ret"
 actorVar :: String
 actorVar = "_actor"
 
+globalsScratchVar :: String
+globalsScratchVar = "_globalsScratch"
+
+initialPc :: String
+initialPc = "_begin"
+
 selfConstant :: String
 selfConstant = "self"
 

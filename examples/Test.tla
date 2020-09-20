@@ -4,95 +4,124 @@ EXTENDS Integers, Sequences, TLC
 
 \* #include Test.ezs
 CONSTANTS _Undefined, main_calls
-VARIABLES _pc, _frames, _ret, _actor, x
-vars == <<_pc, _frames, _ret, _actor, x>>
+VARIABLES _pc, _frames, _globalsScratch, _ret, _actor, x
+vars == <<_pc, _frames, _globalsScratch, _ret, _actor, x>>
 symmetry == UNION {Permutations(main_calls)}
 Init ==
-  /\ _pc = [_pid \in main_calls |-> <<"_line_00005">>]
+  /\ _pc = [_pid \in main_calls |-> <<"_begin">>]
   /\ _frames = [_pid \in main_calls |-> << <<>> >>]
+  /\ _globalsScratch = _Undefined
   /\ _ret = [_pid \in main_calls |-> _Undefined]
   /\ _actor = _Undefined
   /\ x = 0
-_line_00005(self) ==
-  /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00005")
-  /\ ((_actor = _Undefined) \/ (_actor = self))
-  /\ LET _tmp == self IN
-    /\ \E _tmp_1 \in {x}:
-      /\ LET _tmp_2 == _tmp_1 IN
-        /\ LET _tmp_3 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _tmp_2) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
-          /\ TRUE
-          /\ LET _tmp_4 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+_halt(self) ==
+  /\ (_actor = self)
+  /\ (_pc[self] = <<>>)
+  /\ LET _tmp == _Undefined IN
+    /\ LET _tmp_1 == [_ret EXCEPT ![self] = _Undefined] IN
+      /\ LET _tmp_2 == [_frames EXCEPT ![self] = <<>>] IN
+        /\ LET _tmp_3 == _globalsScratch["x"] IN
+          /\ LET _tmp_4 == _Undefined IN
             /\ _actor' = _tmp
-            /\ _frames' = _tmp_3
-            /\ _pc' = _tmp_4
-            /\ UNCHANGED _ret
-            /\ UNCHANGED x
-_line_00006(self) ==
-  /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
-  /\ ((_actor = _Undefined) \/ (_actor = self))
+            /\ _frames' = _tmp_2
+            /\ _globalsScratch' = _tmp_4
+            /\ _ret' = _tmp_1
+            /\ x' = _tmp_3
+            /\ UNCHANGED _pc
+_begin_main(self) ==
+  /\ (_actor = _Undefined)
   /\ LET _tmp_5 == self IN
-    /\ LET _tmp_6 == _Undefined IN
-      /\ LET _tmp_7 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006_1">>)] IN
-        /\ _actor' = _tmp_6
-        /\ _pc' = _tmp_7
+    /\ (self \in main_calls)
+    /\ (Len(_pc[self]) > 0)
+    /\ (_pc[self][Len(_pc[self])] = "_begin")
+    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00005">>)] IN
+      /\ LET _tmp_7 == [x |-> x] IN
+        /\ _actor' = _tmp_5
+        /\ _globalsScratch' = _tmp_7
+        /\ _pc' = _tmp_6
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED x
+_line_00005(self) ==
+  /\ (Len(_pc[self]) > 0)
+  /\ (_pc[self][Len(_pc[self])] = "_line_00005")
+  /\ (_actor = self)
+  /\ \E _tmp_8 \in {_globalsScratch["x"]}:
+    /\ LET _tmp_9 == _tmp_8 IN
+      /\ LET _tmp_10 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _tmp_9) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
+        /\ TRUE
+        /\ LET _tmp_11 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+          /\ _frames' = _tmp_10
+          /\ _pc' = _tmp_11
+          /\ UNCHANGED _actor
+          /\ UNCHANGED _globalsScratch
+          /\ UNCHANGED _ret
+          /\ UNCHANGED x
+_line_00006(self) ==
+  /\ (Len(_pc[self]) > 0)
+  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
+  /\ (_actor = self)
+  /\ LET _tmp_12 == _globalsScratch["x"] IN
+    /\ LET _tmp_13 == _Undefined IN
+      /\ LET _tmp_14 == _Undefined IN
+        /\ LET _tmp_15 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006_1">>)] IN
+          /\ _actor' = _tmp_14
+          /\ _globalsScratch' = _tmp_13
+          /\ _pc' = _tmp_15
+          /\ x' = _tmp_12
+          /\ UNCHANGED _frames
+          /\ UNCHANGED _ret
 _line_00006_1(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00006_1")
-  /\ ((_actor = _Undefined) \/ (_actor = self))
-  /\ LET _tmp_8 == self IN
-    /\ TRUE
-    /\ LET _tmp_9 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00007">>)] IN
-      /\ _actor' = _tmp_8
-      /\ _pc' = _tmp_9
-      /\ UNCHANGED _frames
-      /\ UNCHANGED _ret
-      /\ UNCHANGED x
+  /\ TRUE
+  /\ (_actor = _Undefined)
+  /\ LET _tmp_16 == self IN
+    /\ LET _tmp_17 == [x |-> x] IN
+      /\ LET _tmp_18 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00007">>)] IN
+        /\ _actor' = _tmp_16
+        /\ _globalsScratch' = _tmp_17
+        /\ _pc' = _tmp_18
+        /\ UNCHANGED _frames
+        /\ UNCHANGED _ret
+        /\ UNCHANGED x
 _line_00007(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00007")
-  /\ ((_actor = _Undefined) \/ (_actor = self))
-  /\ LET _tmp_10 == self IN
-    /\ \E _tmp_11 \in {(_frames[self][Len(_frames[self])].tmp + 1)}:
-      /\ LET _tmp_12 == _tmp_11 IN
-        /\ LET _tmp_13 == _tmp_12 IN
-          /\ TRUE
-          /\ LET _tmp_14 == [_frames EXCEPT ![self] = SubSeq(_frames[self], 1, (Len(_frames[self]) - 1))] IN
-            /\ LET _tmp_15 == [_pc EXCEPT ![self] = SubSeq(_pc[self], 1, (Len(_pc[self]) - 1))] IN
-              /\ _actor' = _tmp_10
-              /\ _frames' = _tmp_14
-              /\ _pc' = _tmp_15
-              /\ x' = _tmp_13
-              /\ UNCHANGED _ret
-_halt(self) ==
-  /\ _pc[self] = <<>>
-  /\ _actor = self
-  /\ _actor' = _Undefined
-  /\ _ret' = [_ret EXCEPT ![self] = _Undefined]
-  /\ UNCHANGED _frames
-  /\ UNCHANGED _pc
+  /\ (_actor = self)
+  /\ \E _tmp_19 \in {(_frames[self][Len(_frames[self])].tmp + 1)}:
+    /\ LET _tmp_20 == _tmp_19 IN
+      /\ LET _tmp_21 == [_globalsScratch EXCEPT !["x"] = _tmp_20] IN
+        /\ TRUE
+        /\ LET _tmp_22 == [_frames EXCEPT ![self] = SubSeq(_frames[self], 1, (Len(_frames[self]) - 1))] IN
+          /\ LET _tmp_23 == [_pc EXCEPT ![self] = SubSeq(_pc[self], 1, (Len(_pc[self]) - 1))] IN
+            /\ _frames' = _tmp_22
+            /\ _globalsScratch' = _tmp_21
+            /\ _pc' = _tmp_23
+            /\ UNCHANGED _actor
+            /\ UNCHANGED _ret
+            /\ UNCHANGED x
   /\ UNCHANGED x
 \* `_finished` prevents TLC from reporting deadlock when all processes finish normally
 _finished ==
   /\ \A self \in UNION {main_calls}: _pc[self] = <<>>
-  /\ UNCHANGED <<_pc, _frames, _ret, _actor, x>>
+  /\ UNCHANGED <<_pc, _frames, _globalsScratch, _ret, _actor, x>>
 Next ==
   \E _pid \in UNION {main_calls}:
+    \/ _halt(_pid)
+    \/ _begin_main(_pid)
     \/ _line_00005(_pid)
     \/ _line_00006(_pid)
     \/ _line_00006_1(_pid)
     \/ _line_00007(_pid)
     \/ _halt(_pid)
+    \/ _begin_main(_pid)
     \/ _finished
 NoAssertionFailures == TRUE
 \* /include Test.ezs
 
 Invariant ==
-  /\ (_actor = _Undefined) => (x <= 2)
+  /\ x <= 2
   /\ (\A c \in main_calls: _pc[c] = <<>>) => (x = 2)
 
 =====================

@@ -131,6 +131,7 @@ The generated TLA+ declares the following variables:
  - A number of internal variables whose names begin with underscores:
    - `_pc` (a stack of program counter values for each process)
    - `_frames` (a stack of "call frames" for each process, containing local variables)
+   - `_globalsScratch` (the actor's scratch space for globals between yield points)
    - `_ret` (the most recently returned value for each process)
    - `_actor` (the thread that is currently acting, or `_Undefined` if any
      thread may act)
@@ -146,17 +147,15 @@ The generated TLA+ declares the following operators:
  - Any number of helper operators whose names are prefixed with underscores.
 
 **NOTE: The generated TLA+ system uses one step per statement, meaning that a
-logically atomic block of code goes through multiple TLA+ states.  This has
-implications for specifying correctness properties (see below).**
+logically atomic block of code goes through multiple TLA+ states.**  However,
+the global variables only change when a process yields or terminates.  Between
+yield points, processes use a private snapshot of the global variables and all
+changes are applied simultaneously when the process yields or terminates.
 
 If you are curious for more details about the TLA+ output, look through the
 compiled TLA+ output in the `examples` folder.
 
 ## Specifying Correctness Properties
-
-Because there are multiple TLA+ transitions per atomic block in its compiled
-output, EzPSL makes it slightly harder to write correctness properties.  This
-section provides some tips.
 
 ### No Assertion Failures
 
@@ -167,29 +166,16 @@ find assertion failures.
 
 ### Global Invariants
 
-A common pattern for global invariants is to have a singleton "tester" process
-that asserts your invariant and then exits.  This effectively checks the
-invariant in all possible states.  See `examples/Assertions.ezs` for an example
-of this pattern.
-
-You might want to write your own invariants by hand.  The "tester" pattern
-increases your system's state space, which is one good reason to write
-invariants by hand.  You probably do not want to check your invariants while a
-process is in the middle of an atomic block.
-
-To write your own invariants by hand, place the invariant's definition after
-the compiled output and write your invariant in the form
-
-    MyInvariant ==
-        (_actor = _Undefined) => (PROPERTY YOU CARE ABOUT)
-
-Requiring the actor to be undefined means that your invariant will only be
-checked in the initial state and immediately after a process yields or
-finishes.
+To write a global invariant, place the invariant's definition after the
+compiled output.  Even if a process makes multiple changes to the global
+variables between yield points, the global variables are only modified when the
+process yields.  Therefore, your invariant will never "see" intermediate states
+between yield points.
 
 ### Refinement
 
-(more on this soon!)
+Refinement works the same way as global invariants.  See
+`examples/Refinement.tla` for an example.
 
 ### Deadlock
 
@@ -221,8 +207,6 @@ There are a few ways in which EzPSL is better than PlusCal:
 
 There are also ways in which PlusCal is better than EzPSL:
 
- - **EzPSL makes it harder to write correctness properties.** See the notes
-   in "Specifying Correctness Properties" above for more details.
  - **EzPSL produces longer error traces.**  To support larger atomic blocks,
    EzPSL produces longer error traces than PlusCal when model checking finds a
    violation.  Sometimes this is an advantage; the longer error traces include
