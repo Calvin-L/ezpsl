@@ -1,0 +1,14 @@
+\* CFG CONSTANT main_calls = {A}
+\* CFG CONSTANT test_calls = {B}
+
+var x := 0;
+
+@entry
+proc main() {
+    x := 1;
+}
+
+@entry
+proc test() {
+    assert x = 0;
+}
