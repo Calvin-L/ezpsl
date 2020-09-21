@@ -395,11 +395,18 @@ stmToTransitions kenv (Yield loc) = do
   stmToTransitions kenv (Await loc $ EBool loc True)
 stmToTransitions kenv (Await loc e) = do
   labelYield <- labelFor loc
-  e' <- fixReads kenv e
+  -- NOTE: "await" is the one statement where global variables should not be
+  -- read from `globalsScratchVar`.  Since the globals have not been "imported"
+  -- for the acting process, they have to be read as true globals.
+  e' <- fixReads (M.map userDefinedGlobalsAsRegularGlobals kenv) e
   labelResume <- labelFor loc
   let a = mkStatementTransition loc labelYield (const $ exportGlobals loc kenv ++ [clearActor loc, goto labelResume])
   let b = singleIncompleteTransition labelResume (\_ k -> awaitAtPc loc labelResume ++ [SimpleAwait e', SimpleAwait (noActor loc), SimpleAssignDet actorVar (EThreadID loc)] ++ importGlobals loc kenv ++ k)
   return (labelYield, unionTransitionSets [a, b], [])
+  where
+    userDefinedGlobalsAsRegularGlobals :: Kind -> Kind
+    userDefinedGlobalsAsRegularGlobals KUserDefinedGlobalVar = KInternalGlobalVar
+    userDefinedGlobalsAsRegularGlobals k = k
 stmToTransitions kenv (Either loc stms) = do
   label <- labelFor loc
   x <- freshName "_newPc"

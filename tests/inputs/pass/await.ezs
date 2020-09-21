@@ -1,0 +1,22 @@
+\* CFG CONSTANT toggle_calls = {A}
+\* CFG CONSTANT main_calls = {B}
+
+var x := 0;
+var flag := FALSE;
+
+@entry
+proc main() {
+    x := 1;
+    await flag;
+    assert x = 1; \* only true because there is only one main thread
+    x := 0;
+    assert flag;
+}
+
+@entry
+proc toggle() {
+    while (TRUE) {
+        flag := ~flag;
+        yield;
+    }
+}

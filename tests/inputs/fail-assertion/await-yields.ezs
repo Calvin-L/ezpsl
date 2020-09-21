@@ -1,0 +1,26 @@
+\* CFG CONSTANT toggle_calls = {A}
+\* CFG CONSTANT main_calls = {B}
+\* CFG CONSTANT test_calls = {C}
+
+var x := 0;
+var flag := FALSE;
+
+@entry
+proc main() {
+    x := 1;
+    await flag;
+    x := 0;
+}
+
+@entry
+proc toggle() {
+    while (TRUE) {
+        flag := ~flag;
+        yield;
+    }
+}
+
+@entry
+proc test() {
+    assert x = 0;
+}
