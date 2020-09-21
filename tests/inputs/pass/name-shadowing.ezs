@@ -1,0 +1,15 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    var x := 1;
+
+    pick x \in {x + 1 : x <- {10, 20, 30}, x = 10};
+    assert x = 11;
+
+    x := 1;
+    assert \E x \in {10, 20, 30}: x = 10;
+
+    x := 1;
+    assert [x \in {10} |-> x][10] = 10;
+}

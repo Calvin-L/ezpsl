@@ -142,14 +142,14 @@ compileBinaryOp LeftBiasedMapUnion e1 e2 = e1 ++ " @@ "         ++ e2
 
 fixReads :: (MonadFail m) => KEnv -> Exp SourceLocation -> m (Exp SourceLocation)
 fixReads kenv =
-  transformBottomUp (\e ->
+  transformBottomUp (\bound e ->
     case e of
       ECall _ f _ ->
         case M.lookup f kenv of
           Just (KProcedure _) -> do
             errorAt e $ "Illegal call to " ++ show f ++ "; procedure calls must be in `call` statements."
           _ -> return e
-      EVar a v ->
+      EVar a v | not (v `elem` bound) ->
         case M.lookup v kenv of
           Just KUserDefinedGlobalVar -> do
             return $ EIndex a (EVar a globalsScratchVar) (EStr a v)
