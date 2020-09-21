@@ -1,0 +1,10 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    var x := 1;
+    while (x < 3) {
+        x := x + 1;
+    }
+    assert x /= 3;
+}

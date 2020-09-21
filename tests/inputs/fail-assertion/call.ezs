@@ -1,0 +1,10 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    call helper();
+}
+
+proc helper() {
+    assert FALSE;
+}
