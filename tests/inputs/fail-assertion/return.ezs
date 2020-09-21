@@ -1,0 +1,13 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    var x := 0;
+    x := call helper();
+    assert x /= 2;
+}
+
+proc helper() {
+    skip;
+    return 2;
+}

@@ -466,7 +466,8 @@ callToTransitions kenv s loc procName args useReturnValue = do
       next <- labelFor loc
       args' <- mapM (fixReads kenv) args
       myFrames <- fixReads kenv (EVar noLocation framesVar)
-      useReturnValue' <- useReturnValue (EVar loc retVar)
+      myRet <- fixReads kenv (EVar loc retVar)
+      useReturnValue' <- useReturnValue myRet
       let {instrs procs = [
         setMy SimpleAssignDet framesVar (EBinaryOp noLocation Concat myFrames (EMkTuple loc [EMkRecord noLocation (zip paramNames args')])),
         setPc (EBinaryOp noLocation Concat (replaceTop myPc (EStr noLocation next)) (EMkTuple noLocation [EStr noLocation (procs procName)]))]}

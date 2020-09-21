@@ -115,7 +115,7 @@ _line_00008_1(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00008_1")
   /\ (_actor = self)
-  /\ LET _tmp_22 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _ret) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
+  /\ LET _tmp_22 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _ret[self]) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
     /\ LET _tmp_23 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00009">>)] IN
       /\ _frames' = _tmp_22
       /\ _pc' = _tmp_23
@@ -139,7 +139,7 @@ _line_00009_1(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00009_1")
   /\ (_actor = self)
-  /\ LET _tmp_26 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("success" :> _ret) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
+  /\ LET _tmp_26 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("success" :> _ret[self]) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
     /\ LET _tmp_27 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00007">>)] IN
       /\ _frames' = _tmp_26
       /\ _pc' = _tmp_27
@@ -216,7 +216,7 @@ _line_00018_1(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00018_1")
   /\ (_actor = self)
-  /\ LET _tmp_41 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _ret) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
+  /\ LET _tmp_41 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _ret[self]) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
     /\ LET _tmp_42 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00019">>)] IN
       /\ _frames' = _tmp_41
       /\ _pc' = _tmp_42
@@ -251,7 +251,7 @@ _line_00020_1(self) ==
   /\ (Len(_pc[self]) > 0)
   /\ (_pc[self][Len(_pc[self])] = "_line_00020_1")
   /\ (_actor = self)
-  /\ LET _tmp_46 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("success" :> _ret) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
+  /\ LET _tmp_46 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("success" :> _ret[self]) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
     /\ LET _tmp_47 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00017">>)] IN
       /\ _frames' = _tmp_46
       /\ _pc' = _tmp_47
