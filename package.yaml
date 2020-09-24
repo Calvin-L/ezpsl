@@ -15,6 +15,7 @@ ghc-options:
   - -Werror
   - -Wunused-imports
   - -Wincomplete-patterns
+  - -Wincomplete-uni-patterns
   - -O2
 
 # I am a strong believer in Safe Haskell [1].  Unfortunately, Alex does not

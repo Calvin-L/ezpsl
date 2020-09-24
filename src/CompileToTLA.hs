@@ -1,6 +1,6 @@
 module CompileToTLA (TLACode, ezpsl2tla) where
 
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromJust)
 import Data.List (sortOn)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -8,7 +8,6 @@ import Data.Char (isAlpha)
 
 import Data.Annotated (Annotated, getAnnotation)
 import Data.SourceLocation (SourceLocation(SourceLocation), line, column)
-import Data.Maybe (fromJust)
 import Language.EzPSL.Syntax
 import Language.EzPSL.Transform (transformBottomUp)
 import Names (NamesOp, runNamesOp, freshName)
@@ -30,7 +29,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         let (transitionSets, asserts, labels) = unzip3 compiled
         let procedureEntryLabels = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs labels]
         let procForId procName = fromJust $ M.lookup procName procedureEntryLabels
-        let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let Just pEntry = M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets
+        let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let pEntry = fromJust $ M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets
         convertedTransitions <- mapM (convertTransition env) allTransitions
         return (allTransitions, convertedTransitions, concat asserts)
       let allVars = pcVar : framesVar : globalsScratchVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
