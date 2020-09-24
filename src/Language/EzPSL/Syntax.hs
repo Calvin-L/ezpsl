@@ -94,6 +94,7 @@ data Procedure a
 
 data VarDecl a
   = VarDecl a Id (Exp a)
+  | VarDeclNondeterministic a Id (Exp a)
   deriving (Eq, Ord, Show, Functor)
 
 data Module a

@@ -118,6 +118,7 @@ VarDecls :: { [VarDecl SourceLocation] }
 
 VarDecl :: { VarDecl SourceLocation }
   : 'var' Var ':=' Exp ';' { VarDecl (tokenLocation $1) (fst $2) $4 }
+  | 'var' Var '\\in' Exp ';' { VarDeclNondeterministic (tokenLocation $1) (fst $2) $4 }
 
 Var :: { (Id, SourceLocation) }
   : var { case $1 of { (Lex.Identifier x, loc) -> (x, loc); _ -> error "impossible" } }

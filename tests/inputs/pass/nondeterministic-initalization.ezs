@@ -1,0 +1,9 @@
+\* CFG CONSTANT check_calls = {A}
+
+var a \in {1, 2};
+
+@entry
+proc check() {
+    var b \in {a, 10};
+    assert (a * b) \in {1, 4, 10, 20};
+}

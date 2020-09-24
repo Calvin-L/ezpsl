@@ -52,7 +52,7 @@ Example file:
     \* Global variables
 
     var v1 := 2;
-    var v2 := 3;
+    var v2 \in {3, 4};
 
     \* ----------------
     \* Procedures
@@ -71,7 +71,11 @@ Comments begin with `\*` and are completely ignored by the tool.
 
 All global variables must be listed before any procedures, and local variables
 within a procedure must be declared first, before any statements in the
-procedure.  Procedures may be listed in any order.
+procedure.  Variables must be initialized.  They can either be initialized with
+an exact value using `:=` or nondeterministically as an arbitrary element of a
+set using `\in`.
+
+Procedures may be listed in any order.
 
 The `@entry` flag indicates that a procedure is an "entry point", where threads
 may start execution.  There must be one or more `@entry` procedures.

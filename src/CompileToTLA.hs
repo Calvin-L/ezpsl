@@ -23,7 +23,7 @@ ezpsl2tla m@(Module _ vars procs) = do
   case entryProcedures of
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
-      initialValues <- mapM (\(VarDecl _ _ e) -> exp2tla (M.empty) e) vars
+      initialValues <- mapM createTLAVariableInitialization vars
       (allTransitions, compiledTransitions, assertions) <- runNamesOp $ do
         compiled <- mapM (procToTransitions env) procs
         let (transitionSets, asserts, labels) = unzip3 compiled
@@ -32,7 +32,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let pEntry = fromJust $ M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets
         convertedTransitions <- mapM (convertTransition env) allTransitions
         return (allTransitions, convertedTransitions, concat asserts)
-      let allVars = pcVar : framesVar : globalsScratchVar : retVar : actorVar : [v | VarDecl _ v _ <- vars]
+      let allVars = pcVar : framesVar : globalsScratchVar : retVar : actorVar : [variableBeingDeclared decl | decl <- vars]
       assertionConditions <- mapM (\(Assertion label kenv e) -> do
         e' <- fixReads kenv (EBinaryOp noLocation Implies (EBinaryOp noLocation And (EBinaryOp noLocation Ne (EVar noLocation pcVar) (EMkTuple noLocation [])) (EBinaryOp noLocation Eq (peek $ EVar noLocation pcVar) (EStr noLocation label))) e)
         exp2tla (initialEnv kenv) e') assertions
@@ -47,7 +47,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         ++ ["  /\\ " ++ globalsScratchVar ++ " = " ++ undefinedConstant]
         ++ ["  /\\ " ++ retVar ++ " = " ++ join " @@ " ["[_pid \\in " ++ p ++ " |-> " ++ undefinedConstant ++ "]" | p <- pidSets]]
         ++ ["  /\\ " ++ actorVar ++ " = " ++ undefinedConstant]
-        ++ ["  /\\ " ++ v ++ " = " ++ initValue | (VarDecl _ v _, initValue) <- zip vars initialValues]
+        ++ ["  /\\ " ++ initExp | initExp <- initialValues]
         ++ compiledTransitions
         -- ++ ["_halt(" ++ selfConstant ++ ") ==",
         --     "  /\\ " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
@@ -56,7 +56,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         --     "  /\\ " ++ retVar ++ "' = [" ++ retVar ++ " EXCEPT ![" ++ selfConstant ++ "] = _Undefined]",
         --     "  /\\ UNCHANGED " ++ framesVar,
         --     "  /\\ UNCHANGED " ++ pcVar]
-        ++ ["  /\\ UNCHANGED " ++ v | VarDecl _ v _ <- vars]
+        ++ ["  /\\ UNCHANGED " ++ variableBeingDeclared decl | decl <- vars]
         ++ ["\\* `_finished` prevents TLC from reporting deadlock when all processes finish normally"]
         ++ ["_finished ==",
             "  /\\ \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}: " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",
@@ -70,6 +70,14 @@ ezpsl2tla m@(Module _ vars procs) = do
           [] -> ["NoAssertionFailures == TRUE"]
           _ -> ["NoAssertionFailures == \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}:"]
             ++ ["    /\\ (" ++ actorVar ++ " = " ++ selfConstant ++ ") => (" ++ e ++ ")" | e <- assertionConditions]
+
+createTLAVariableInitialization :: (Monad m) => VarDecl SourceLocation -> m TLACode
+createTLAVariableInitialization (VarDecl _ v e) = do
+  e' <- exp2tla (M.empty) e
+  return $ v ++ " = (" ++ e' ++ ")"
+createTLAVariableInitialization (VarDeclNondeterministic _ v e) = do
+  e' <- exp2tla (M.empty) e
+  return $ v ++ " \\in (" ++ e' ++ ")"
 
 beginTransition :: KEnv -> Procedure SourceLocation -> Id -> PCLabel -> NamedTransition SourceLocation
 beginTransition kenv p pset entry = ("_begin_" ++ procedureName p, [
@@ -312,18 +320,26 @@ exportGlobals loc kenv =
   [SimpleAssignDet name $ EIndex loc (EVar loc globalsScratchVar) (EStr noLocation name) | name <- globals] ++
   [SimpleAssignDet globalsScratchVar (EVar loc undefinedConstant)]
 
+varDeclAsAssignment :: VarDecl a -> Stm a
+varDeclAsAssignment (VarDecl loc v e) = Assign loc (LVar loc v) e
+varDeclAsAssignment (VarDeclNondeterministic loc v e) = NondeterministicAssign loc (LVar loc v) e (EBool loc True)
+
+variableBeingDeclared :: VarDecl a -> Id
+variableBeingDeclared (VarDecl _ v _) = v
+variableBeingDeclared (VarDeclNondeterministic _ v _) = v
+
 -- | Convert a procedure into a CFG, collecting all assertions along the way.
 --   The returned label is the procedure entry point.
 procToTransitions :: KEnv -> Procedure SourceLocation -> NamesOp ((Id -> PCLabel) -> [NamedTransition SourceLocation], [Assertion SourceLocation], PCLabel)
 procToTransitions env proc = do
-  (entry, incomplete, assertions) <- stmToTransitions innerEnv $ foldr (Seq noLocation) (procedureBody proc) [Assign loc (LVar loc v) e | VarDecl loc v e <- procedureLocals proc]
+  (entry, incomplete, assertions) <- stmToTransitions innerEnv $ foldr (Seq noLocation) (procedureBody proc) (map varDeclAsAssignment $ procedureLocals proc)
   let implicitReturn = doReturn noLocation
   let {transitions procs = incomplete procs implicitReturn}
   return (transitions, assertions, entry)
 
   where
     localNames :: [Id]
-    localNames = [v | VarDecl _ v _ <- procedureLocals proc]
+    localNames = [variableBeingDeclared decl | decl <- procedureLocals proc]
 
     innerEnv :: KEnv
     innerEnv = M.union (M.fromList [(param, KProcedureLocalVar) | param <- procedureParameters proc ++ localNames]) env
@@ -549,5 +565,5 @@ mkEnv (Module _ vars procs) = do
     M.singleton globalsScratchVar KInternalGlobalVar,
     M.singleton retVar KPerProcessVar,
     M.singleton actorVar KInternalGlobalVar,
-    M.fromList [(v, KUserDefinedGlobalVar) | VarDecl _ v _ <- vars],
+    M.fromList [(variableBeingDeclared decl, KUserDefinedGlobalVar) | decl <- vars],
     M.fromList [(procedureName p, KProcedure (procedureParameters p)) | p <- procs]]
