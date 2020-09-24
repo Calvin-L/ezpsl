@@ -332,7 +332,7 @@ variableBeingDeclared (VarDeclNondeterministic _ v _) = v
 --   The returned label is the procedure entry point.
 procToTransitions :: KEnv -> Procedure SourceLocation -> NamesOp ((Id -> PCLabel) -> [NamedTransition SourceLocation], [Assertion SourceLocation], PCLabel)
 procToTransitions env proc = do
-  (entry, incomplete, assertions) <- stmToTransitions innerEnv $ foldr (Seq noLocation) (procedureBody proc) (map varDeclAsAssignment $ procedureLocals proc)
+  (entry, incomplete, assertions) <- stmToTransitions (procedureName proc) innerEnv $ foldr (Seq noLocation) (procedureBody proc) (map varDeclAsAssignment $ procedureLocals proc)
   let implicitReturn = doReturn noLocation
   let {transitions procs = incomplete procs implicitReturn}
   return (transitions, assertions, entry)
@@ -344,8 +344,9 @@ procToTransitions env proc = do
     innerEnv :: KEnv
     innerEnv = M.union (M.fromList [(param, KProcedureLocalVar) | param <- procedureParameters proc ++ localNames]) env
 
-labelFor :: SourceLocation -> NamesOp PCLabel
-labelFor loc = freshName ("_line_" ++ pad 5 '0' (show (line loc)))
+labelFor :: ProcedureName -> SourceLocation -> String -> NamesOp PCLabel
+labelFor pname loc stmDescription =
+  freshName ('_' : pname ++ "_line" ++ pad 5 '0' (show (line loc)) ++ '_' : stmDescription)
 
 awaitAtPc :: SourceLocation -> PCLabel -> [SimpleInstr SourceLocation]
 awaitAtPc a label = [
@@ -395,26 +396,26 @@ mkStatementTransition loc label instrs =
   singleIncompleteTransition label (\_ next ->
     commonPrefix loc label ++ instrs next)
 
-stmToTransitions :: KEnv -> Stm SourceLocation -> NamesOp (PCLabel, IncompleteTransitionSet SourceLocation, [Assertion SourceLocation])
-stmToTransitions kenv (Seq _ a b) = do
-  (aLabel, aTransitions, aAssertions) <- stmToTransitions kenv a
-  (bLabel, bTransitions, bAssertions) <- stmToTransitions kenv b
+stmToTransitions :: ProcedureName -> KEnv -> Stm SourceLocation -> NamesOp (PCLabel, IncompleteTransitionSet SourceLocation, [Assertion SourceLocation])
+stmToTransitions pname kenv (Seq _ a b) = do
+  (aLabel, aTransitions, aAssertions) <- stmToTransitions pname kenv a
+  (bLabel, bTransitions, bAssertions) <- stmToTransitions pname kenv b
   return (aLabel, \procs k -> aTransitions procs [goto bLabel] ++ bTransitions procs k, aAssertions ++ bAssertions)
-stmToTransitions _ (Skip loc) = do
-  label <- labelFor loc
+stmToTransitions pname _ (Skip loc) = do
+  label <- labelFor pname loc "skip"
   return (label, mkStatementTransition loc label id, [])
-stmToTransitions kenv (Assert loc e) = do
-  label <- labelFor loc
+stmToTransitions pname kenv (Assert loc e) = do
+  label <- labelFor pname loc "assert"
   return (label, mkStatementTransition loc label id, [Assertion label kenv e])
-stmToTransitions kenv (Yield loc) = do
-  stmToTransitions kenv (Await loc $ EBool loc True)
-stmToTransitions kenv (Await loc e) = do
-  labelYield <- labelFor loc
+stmToTransitions pname kenv (Yield loc) = do
+  stmToTransitions pname kenv (Await loc $ EBool loc True)
+stmToTransitions pname kenv (Await loc e) = do
+  labelYield <- labelFor pname loc "yield"
   -- NOTE: "await" is the one statement where global variables should not be
   -- read from `globalsScratchVar`.  Since the globals have not been "imported"
   -- for the acting process, they have to be read as true globals.
   e' <- fixReads (M.map userDefinedGlobalsAsRegularGlobals kenv) e
-  labelResume <- labelFor loc
+  labelResume <- labelFor pname loc "yield_resume"
   let a = mkStatementTransition loc labelYield (const $ exportGlobals loc kenv ++ [clearActor loc, goto labelResume])
   let b = singleIncompleteTransition labelResume (\_ k -> awaitAtPc loc labelResume ++ [SimpleAwait e', SimpleAwait (noActor loc), SimpleAssignDet actorVar (EThreadID loc)] ++ importGlobals loc kenv ++ k)
   return (labelYield, unionTransitionSets [a, b], [])
@@ -422,70 +423,71 @@ stmToTransitions kenv (Await loc e) = do
     userDefinedGlobalsAsRegularGlobals :: Kind -> Kind
     userDefinedGlobalsAsRegularGlobals KUserDefinedGlobalVar = KInternalGlobalVar
     userDefinedGlobalsAsRegularGlobals k = k
-stmToTransitions kenv (Either loc stms) = do
-  label <- labelFor loc
+stmToTransitions pname kenv (Either loc stms) = do
+  label <- labelFor pname loc "pick_either_branch"
   x <- freshName "_newPc"
-  stms' <- mapM (stmToTransitions kenv) stms
+  stms' <- mapM (stmToTransitions pname kenv) stms
   let (successorLabels, incompleteTransitions, assertions) = unzip3 stms'
   let {instrs = [
     SimpleAssignNonDet x (EMkSet loc [EStr loc successorLabel | successorLabel <- successorLabels]),
     gotoDynamic (EVar loc x)]}
   return (label, unionTransitionSets (mkStatementTransition loc label (const instrs) : incompleteTransitions), concat assertions)
-stmToTransitions kenv (Assign loc lval e) = do
-  stmToTransitions kenv (NondeterministicAssign loc lval (EMkSet loc [e]) (EBool loc True))
-stmToTransitions kenv (NondeterministicAssign loc lval set predicate) = do
+stmToTransitions pname kenv (Assign loc lval e) = do
+  stmToTransitions pname kenv (NondeterministicAssign loc lval (EMkSet loc [e]) (EBool loc True))
+stmToTransitions pname kenv (NondeterministicAssign loc lval set predicate) = do
   x <- freshName "_choice"
-  label <- labelFor loc
+  label <- labelFor pname loc "pick"
   set' <- fixReads kenv set
   predicate' <- fixReads kenv predicate
   (v, v') <- asSimpleAssignment kenv lval (EVar loc x)
   return (label, mkStatementTransition loc label ([SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate']++), [])
-stmToTransitions kenv (If loc cond thenBranch elseBranch) = do
-  label <- labelFor loc
+stmToTransitions pname kenv (If loc cond thenBranch elseBranch) = do
+  label <- labelFor pname loc "if_branch"
   cond' <- fixReads kenv cond
-  (thenEntry, thenTransitions, thenAssertions) <- stmToTransitions kenv thenBranch
-  (elseEntry, elseTransitions, elseAssertions) <- stmToTransitions kenv elseBranch
+  (thenEntry, thenTransitions, thenAssertions) <- stmToTransitions pname kenv thenBranch
+  (elseEntry, elseTransitions, elseAssertions) <- stmToTransitions pname kenv elseBranch
   let instrs = [setPc (replaceTop myPc (ECond loc cond' (EStr loc thenEntry) (EStr loc elseEntry)))]
   return (label, unionTransitionSets [mkStatementTransition loc label (const instrs), thenTransitions, elseTransitions], thenAssertions ++ elseAssertions)
-stmToTransitions kenv (While loc cond body) = do
-  label <- labelFor loc
+stmToTransitions pname kenv (While loc cond body) = do
+  label <- labelFor pname loc "test_loop_condition"
   cond' <- fixReads kenv cond
-  (bodyEntry, bodyTransitions, bodyAssertions) <- stmToTransitions kenv body
-  exitLabel <- labelFor loc
+  (bodyEntry, bodyTransitions, bodyAssertions) <- stmToTransitions pname kenv body
+  exitLabel <- labelFor pname loc "exit_loop"
   let instrs = [setPc (replaceTop myPc (ECond loc cond' (EStr loc bodyEntry) (EStr loc exitLabel)))]
   return (label, unionTransitionSets [
     mkStatementTransition loc label (const instrs),
     \procs _ -> bodyTransitions procs [goto label],
     mkStatementTransition loc exitLabel id
     ], bodyAssertions)
-stmToTransitions kenv s@(Call loc procName args) = do
-  callToTransitions kenv s loc procName args (const $ return [])
-stmToTransitions kenv s@(CallAndSaveReturnValue loc outLVal procName args) = do
-  callToTransitions kenv s loc procName args (\ret -> do
+stmToTransitions pname kenv s@(Call loc procName args) = do
+  callToTransitions pname kenv s loc procName args (const $ return [])
+stmToTransitions pname kenv s@(CallAndSaveReturnValue loc outLVal procName args) = do
+  callToTransitions pname kenv s loc procName args (\ret -> do
     (v, v') <- asSimpleAssignment kenv outLVal ret
     return [SimpleAssignDet v v'])
-stmToTransitions kenv (Return loc maybeRet) = do
-  label <- labelFor loc
+stmToTransitions pname kenv (Return loc maybeRet) = do
+  label <- labelFor pname loc "return"
   ret <- case maybeRet of
     Just e -> fixReads kenv e
     Nothing -> return (EVar loc undefinedConstant)
   let {instrs = [setMy SimpleAssignDet retVar ret] ++ doReturn loc}
   return (label, mkStatementTransition loc label (const instrs), [])
 
-callToTransitions :: KEnv
+callToTransitions :: ProcedureName
+                  -> KEnv
                   -> Stm SourceLocation
                   -> SourceLocation
                   -> Id
                   -> [Exp SourceLocation]
                   -> (Exp SourceLocation -> NamesOp [SimpleInstr SourceLocation])
                   -> NamesOp (PCLabel, IncompleteTransitionSet SourceLocation, [Assertion SourceLocation])
-callToTransitions kenv s loc procName args useReturnValue = do
+callToTransitions pname kenv s loc procName args useReturnValue = do
   case M.lookup procName kenv of
     Just (KProcedure paramNames) | length paramNames /= length args -> do
       errorAt s $ "Incorrect number of arguments for call to " ++ show procName ++ " (expects " ++ show (length paramNames) ++ ", got " ++ show (length args) ++ ")"
     Just (KProcedure paramNames) -> do
-      label <- labelFor loc
-      next <- labelFor loc
+      label <- labelFor pname loc $ "call_" ++ procName
+      next <- labelFor pname loc $ "return_from_" ++ procName
       args' <- mapM (fixReads kenv) args
       myFrames <- fixReads kenv (EVar noLocation framesVar)
       myRet <- fixReads kenv (EVar loc retVar)

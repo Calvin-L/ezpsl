@@ -13,8 +13,8 @@ Init ==
   /\ _globalsScratch = _Undefined
   /\ _ret = [_pid \in increment_calls |-> _Undefined]
   /\ _actor = _Undefined
-  /\ x = 0
-  /\ y = 0
+  /\ x = (0)
+  /\ y = (0)
 _halt(self) ==
   /\ (_actor = self)
   /\ (_pc[self] = <<>>)
@@ -37,7 +37,7 @@ _begin_increment(self) ==
     /\ (self \in increment_calls)
     /\ (Len(_pc[self]) > 0)
     /\ (_pc[self][Len(_pc[self])] = "_begin")
-    /\ LET _tmp_7 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+    /\ LET _tmp_7 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_increment_line00006_test_loop_condition">>)] IN
       /\ LET _tmp_8 == [x |-> x, y |-> y] IN
         /\ _actor' = _tmp_6
         /\ _globalsScratch' = _tmp_8
@@ -46,11 +46,11 @@ _begin_increment(self) ==
         /\ UNCHANGED _ret
         /\ UNCHANGED x
         /\ UNCHANGED y
-_line_00006(self) ==
+_increment_line00006_test_loop_condition(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00006_test_loop_condition")
   /\ (_actor = self)
-  /\ LET _tmp_9 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<(IF (_globalsScratch["x"] < 5) THEN "_line_00007" ELSE "_line_00006_1")>>)] IN
+  /\ LET _tmp_9 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<(IF (_globalsScratch["x"] < 5) THEN "_increment_line00007_pick" ELSE "_increment_line00006_exit_loop")>>)] IN
     /\ _pc' = _tmp_9
     /\ UNCHANGED _actor
     /\ UNCHANGED _frames
@@ -58,15 +58,15 @@ _line_00006(self) ==
     /\ UNCHANGED _ret
     /\ UNCHANGED x
     /\ UNCHANGED y
-_line_00007(self) ==
+_increment_line00007_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00007")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00007_pick")
   /\ (_actor = self)
   /\ \E _tmp_10 \in {(_globalsScratch["x"] + 1)}:
     /\ LET _tmp_11 == _tmp_10 IN
       /\ LET _tmp_12 == [_globalsScratch EXCEPT !["x"] = _tmp_11] IN
         /\ TRUE
-        /\ LET _tmp_13 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00008">>)] IN
+        /\ LET _tmp_13 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_increment_line00008_pick">>)] IN
           /\ _globalsScratch' = _tmp_12
           /\ _pc' = _tmp_13
           /\ UNCHANGED _actor
@@ -74,15 +74,15 @@ _line_00007(self) ==
           /\ UNCHANGED _ret
           /\ UNCHANGED x
           /\ UNCHANGED y
-_line_00008(self) ==
+_increment_line00008_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00008")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00008_pick")
   /\ (_actor = self)
   /\ \E _tmp_14 \in {(_globalsScratch["y"] + 1)}:
     /\ LET _tmp_15 == _tmp_14 IN
       /\ LET _tmp_16 == [_globalsScratch EXCEPT !["y"] = _tmp_15] IN
         /\ TRUE
-        /\ LET _tmp_17 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00009">>)] IN
+        /\ LET _tmp_17 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_increment_line00009_yield">>)] IN
           /\ _globalsScratch' = _tmp_16
           /\ _pc' = _tmp_17
           /\ UNCHANGED _actor
@@ -90,15 +90,15 @@ _line_00008(self) ==
           /\ UNCHANGED _ret
           /\ UNCHANGED x
           /\ UNCHANGED y
-_line_00009(self) ==
+_increment_line00009_yield(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00009")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00009_yield")
   /\ (_actor = self)
   /\ LET _tmp_18 == _globalsScratch["x"] IN
     /\ LET _tmp_19 == _globalsScratch["y"] IN
       /\ LET _tmp_20 == _Undefined IN
         /\ LET _tmp_21 == _Undefined IN
-          /\ LET _tmp_22 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00009_1">>)] IN
+          /\ LET _tmp_22 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_increment_line00009_yield_resume">>)] IN
             /\ _actor' = _tmp_21
             /\ _globalsScratch' = _tmp_20
             /\ _pc' = _tmp_22
@@ -106,14 +106,14 @@ _line_00009(self) ==
             /\ y' = _tmp_19
             /\ UNCHANGED _frames
             /\ UNCHANGED _ret
-_line_00009_1(self) ==
+_increment_line00009_yield_resume(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00009_1")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00009_yield_resume")
   /\ TRUE
   /\ (_actor = _Undefined)
   /\ LET _tmp_23 == self IN
     /\ LET _tmp_24 == [x |-> x, y |-> y] IN
-      /\ LET _tmp_25 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+      /\ LET _tmp_25 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_increment_line00006_test_loop_condition">>)] IN
         /\ _actor' = _tmp_23
         /\ _globalsScratch' = _tmp_24
         /\ _pc' = _tmp_25
@@ -121,9 +121,9 @@ _line_00009_1(self) ==
         /\ UNCHANGED _ret
         /\ UNCHANGED x
         /\ UNCHANGED y
-_line_00006_1(self) ==
+_increment_line00006_exit_loop(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006_1")
+  /\ (_pc[self][Len(_pc[self])] = "_increment_line00006_exit_loop")
   /\ (_actor = self)
   /\ LET _tmp_26 == [_frames EXCEPT ![self] = SubSeq(_frames[self], 1, (Len(_frames[self]) - 1))] IN
     /\ LET _tmp_27 == [_pc EXCEPT ![self] = SubSeq(_pc[self], 1, (Len(_pc[self]) - 1))] IN
@@ -144,12 +144,12 @@ Next ==
   \E _pid \in UNION {increment_calls}:
     \/ _halt(_pid)
     \/ _begin_increment(_pid)
-    \/ _line_00006(_pid)
-    \/ _line_00007(_pid)
-    \/ _line_00008(_pid)
-    \/ _line_00009(_pid)
-    \/ _line_00009_1(_pid)
-    \/ _line_00006_1(_pid)
+    \/ _increment_line00006_test_loop_condition(_pid)
+    \/ _increment_line00007_pick(_pid)
+    \/ _increment_line00008_pick(_pid)
+    \/ _increment_line00009_yield(_pid)
+    \/ _increment_line00009_yield_resume(_pid)
+    \/ _increment_line00006_exit_loop(_pid)
     \/ _halt(_pid)
     \/ _begin_increment(_pid)
     \/ _finished

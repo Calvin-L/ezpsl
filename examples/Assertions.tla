@@ -13,7 +13,7 @@ Init ==
   /\ _globalsScratch = _Undefined
   /\ _ret = [_pid \in main_calls |-> _Undefined] @@ [_pid \in test_calls |-> _Undefined]
   /\ _actor = _Undefined
-  /\ ok = TRUE
+  /\ ok = (TRUE)
 _halt(self) ==
   /\ (_actor = self)
   /\ (_pc[self] = <<>>)
@@ -34,7 +34,7 @@ _begin_main(self) ==
     /\ (self \in main_calls)
     /\ (Len(_pc[self]) > 0)
     /\ (_pc[self][Len(_pc[self])] = "_begin")
-    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00005">>)] IN
+    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00005_pick">>)] IN
       /\ LET _tmp_7 == [ok |-> ok] IN
         /\ _actor' = _tmp_5
         /\ _globalsScratch' = _tmp_7
@@ -48,7 +48,7 @@ _begin_test(self) ==
     /\ (self \in test_calls)
     /\ (Len(_pc[self]) > 0)
     /\ (_pc[self][Len(_pc[self])] = "_begin")
-    /\ LET _tmp_9 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00012">>)] IN
+    /\ LET _tmp_9 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_test_line00012_assert">>)] IN
       /\ LET _tmp_10 == [ok |-> ok] IN
         /\ _actor' = _tmp_8
         /\ _globalsScratch' = _tmp_10
@@ -56,52 +56,52 @@ _begin_test(self) ==
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED ok
-_line_00005(self) ==
+_main_line00005_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00005")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00005_pick")
   /\ (_actor = self)
   /\ \E _tmp_11 \in {FALSE}:
     /\ LET _tmp_12 == _tmp_11 IN
       /\ LET _tmp_13 == [_globalsScratch EXCEPT !["ok"] = _tmp_12] IN
         /\ TRUE
-        /\ LET _tmp_14 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+        /\ LET _tmp_14 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00006_yield">>)] IN
           /\ _globalsScratch' = _tmp_13
           /\ _pc' = _tmp_14
           /\ UNCHANGED _actor
           /\ UNCHANGED _frames
           /\ UNCHANGED _ret
           /\ UNCHANGED ok
-_line_00006(self) ==
+_main_line00006_yield(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00006_yield")
   /\ (_actor = self)
   /\ LET _tmp_15 == _globalsScratch["ok"] IN
     /\ LET _tmp_16 == _Undefined IN
       /\ LET _tmp_17 == _Undefined IN
-        /\ LET _tmp_18 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006_1">>)] IN
+        /\ LET _tmp_18 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00006_yield_resume">>)] IN
           /\ _actor' = _tmp_17
           /\ _globalsScratch' = _tmp_16
           /\ _pc' = _tmp_18
           /\ ok' = _tmp_15
           /\ UNCHANGED _frames
           /\ UNCHANGED _ret
-_line_00006_1(self) ==
+_main_line00006_yield_resume(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006_1")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00006_yield_resume")
   /\ TRUE
   /\ (_actor = _Undefined)
   /\ LET _tmp_19 == self IN
     /\ LET _tmp_20 == [ok |-> ok] IN
-      /\ LET _tmp_21 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00007">>)] IN
+      /\ LET _tmp_21 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00007_pick">>)] IN
         /\ _actor' = _tmp_19
         /\ _globalsScratch' = _tmp_20
         /\ _pc' = _tmp_21
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED ok
-_line_00007(self) ==
+_main_line00007_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00007")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00007_pick")
   /\ (_actor = self)
   /\ \E _tmp_22 \in {TRUE}:
     /\ LET _tmp_23 == _tmp_22 IN
@@ -115,9 +115,9 @@ _line_00007(self) ==
             /\ UNCHANGED _actor
             /\ UNCHANGED _ret
             /\ UNCHANGED ok
-_line_00012(self) ==
+_test_line00012_assert(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00012")
+  /\ (_pc[self][Len(_pc[self])] = "_test_line00012_assert")
   /\ (_actor = self)
   /\ LET _tmp_27 == [_frames EXCEPT ![self] = SubSeq(_frames[self], 1, (Len(_frames[self]) - 1))] IN
     /\ LET _tmp_28 == [_pc EXCEPT ![self] = SubSeq(_pc[self], 1, (Len(_pc[self]) - 1))] IN
@@ -137,17 +137,17 @@ Next ==
     \/ _halt(_pid)
     \/ _begin_main(_pid)
     \/ _begin_test(_pid)
-    \/ _line_00005(_pid)
-    \/ _line_00006(_pid)
-    \/ _line_00006_1(_pid)
-    \/ _line_00007(_pid)
-    \/ _line_00012(_pid)
+    \/ _main_line00005_pick(_pid)
+    \/ _main_line00006_yield(_pid)
+    \/ _main_line00006_yield_resume(_pid)
+    \/ _main_line00007_pick(_pid)
+    \/ _test_line00012_assert(_pid)
     \/ _halt(_pid)
     \/ _begin_main(_pid)
     \/ _begin_test(_pid)
     \/ _finished
 NoAssertionFailures == \A self \in UNION {main_calls, test_calls}:
-    /\ (_actor = self) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_line_00012")) => _globalsScratch["ok"]))
+    /\ (_actor = self) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_test_line00012_assert")) => _globalsScratch["ok"]))
 \* /include Assertions.ezs
 
 =====================

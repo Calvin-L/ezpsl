@@ -13,7 +13,7 @@ Init ==
   /\ _globalsScratch = _Undefined
   /\ _ret = [_pid \in main_calls |-> _Undefined]
   /\ _actor = _Undefined
-  /\ x = 0
+  /\ x = (0)
 _halt(self) ==
   /\ (_actor = self)
   /\ (_pc[self] = <<>>)
@@ -34,7 +34,7 @@ _begin_main(self) ==
     /\ (self \in main_calls)
     /\ (Len(_pc[self]) > 0)
     /\ (_pc[self][Len(_pc[self])] = "_begin")
-    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00005">>)] IN
+    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00005_pick">>)] IN
       /\ LET _tmp_7 == [x |-> x] IN
         /\ _actor' = _tmp_5
         /\ _globalsScratch' = _tmp_7
@@ -42,52 +42,52 @@ _begin_main(self) ==
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED x
-_line_00005(self) ==
+_main_line00005_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00005")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00005_pick")
   /\ (_actor = self)
   /\ \E _tmp_8 \in {_globalsScratch["x"]}:
     /\ LET _tmp_9 == _tmp_8 IN
       /\ LET _tmp_10 == [_frames EXCEPT ![self] = ((Len(_frames[self]) :> (("tmp" :> _tmp_9) @@ _frames[self][Len(_frames[self])])) @@ _frames[self])] IN
         /\ TRUE
-        /\ LET _tmp_11 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006">>)] IN
+        /\ LET _tmp_11 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00006_yield">>)] IN
           /\ _frames' = _tmp_10
           /\ _pc' = _tmp_11
           /\ UNCHANGED _actor
           /\ UNCHANGED _globalsScratch
           /\ UNCHANGED _ret
           /\ UNCHANGED x
-_line_00006(self) ==
+_main_line00006_yield(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00006_yield")
   /\ (_actor = self)
   /\ LET _tmp_12 == _globalsScratch["x"] IN
     /\ LET _tmp_13 == _Undefined IN
       /\ LET _tmp_14 == _Undefined IN
-        /\ LET _tmp_15 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00006_1">>)] IN
+        /\ LET _tmp_15 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00006_yield_resume">>)] IN
           /\ _actor' = _tmp_14
           /\ _globalsScratch' = _tmp_13
           /\ _pc' = _tmp_15
           /\ x' = _tmp_12
           /\ UNCHANGED _frames
           /\ UNCHANGED _ret
-_line_00006_1(self) ==
+_main_line00006_yield_resume(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006_1")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00006_yield_resume")
   /\ TRUE
   /\ (_actor = _Undefined)
   /\ LET _tmp_16 == self IN
     /\ LET _tmp_17 == [x |-> x] IN
-      /\ LET _tmp_18 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00007">>)] IN
+      /\ LET _tmp_18 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00007_pick">>)] IN
         /\ _actor' = _tmp_16
         /\ _globalsScratch' = _tmp_17
         /\ _pc' = _tmp_18
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED x
-_line_00007(self) ==
+_main_line00007_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00007")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00007_pick")
   /\ (_actor = self)
   /\ \E _tmp_19 \in {(_frames[self][Len(_frames[self])].tmp + 1)}:
     /\ LET _tmp_20 == _tmp_19 IN
@@ -110,10 +110,10 @@ Next ==
   \E _pid \in UNION {main_calls}:
     \/ _halt(_pid)
     \/ _begin_main(_pid)
-    \/ _line_00005(_pid)
-    \/ _line_00006(_pid)
-    \/ _line_00006_1(_pid)
-    \/ _line_00007(_pid)
+    \/ _main_line00005_pick(_pid)
+    \/ _main_line00006_yield(_pid)
+    \/ _main_line00006_yield_resume(_pid)
+    \/ _main_line00007_pick(_pid)
     \/ _halt(_pid)
     \/ _begin_main(_pid)
     \/ _finished

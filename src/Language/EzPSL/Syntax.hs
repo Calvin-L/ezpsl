@@ -6,6 +6,7 @@ import Data.Annotated
 
 type Id = String
 type FieldName = String
+type ProcedureName = String
 
 data UnaryOp
   = Not | Negate | UnionAll | AllSubsets | Domain
@@ -86,7 +87,7 @@ data Procedure a
   = Procedure {
     procedureSyntaxAnnotation :: a,
     procedureAnnotations :: [Annotation],
-    procedureName :: Id,
+    procedureName :: ProcedureName,
     procedureParameters :: [Id],
     procedureLocals :: [VarDecl a],
     procedureBody :: Stm a }

@@ -13,7 +13,7 @@ Init ==
   /\ _globalsScratch = _Undefined
   /\ _ret = [_pid \in main_calls |-> _Undefined]
   /\ _actor = _Undefined
-  /\ x = TRUE
+  /\ x = (TRUE)
 _halt(self) ==
   /\ (_actor = self)
   /\ (_pc[self] = <<>>)
@@ -34,7 +34,7 @@ _begin_main(self) ==
     /\ (self \in main_calls)
     /\ (Len(_pc[self]) > 0)
     /\ (_pc[self][Len(_pc[self])] = "_begin")
-    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00005">>)] IN
+    /\ LET _tmp_6 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00005_test_loop_condition">>)] IN
       /\ LET _tmp_7 == [x |-> x] IN
         /\ _actor' = _tmp_5
         /\ _globalsScratch' = _tmp_7
@@ -42,46 +42,46 @@ _begin_main(self) ==
         /\ UNCHANGED _frames
         /\ UNCHANGED _ret
         /\ UNCHANGED x
-_line_00005(self) ==
+_main_line00005_test_loop_condition(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00005")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00005_test_loop_condition")
   /\ (_actor = self)
-  /\ LET _tmp_8 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<(IF TRUE THEN "_line_00006" ELSE "_line_00005_1")>>)] IN
+  /\ LET _tmp_8 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<(IF TRUE THEN "_main_line00006_pick" ELSE "_main_line00005_exit_loop")>>)] IN
     /\ _pc' = _tmp_8
     /\ UNCHANGED _actor
     /\ UNCHANGED _frames
     /\ UNCHANGED _globalsScratch
     /\ UNCHANGED _ret
     /\ UNCHANGED x
-_line_00006(self) ==
+_main_line00006_pick(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00006")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00006_pick")
   /\ (_actor = self)
   /\ \E _tmp_9 \in {~_globalsScratch["x"]}:
     /\ LET _tmp_10 == _tmp_9 IN
       /\ LET _tmp_11 == [_globalsScratch EXCEPT !["x"] = _tmp_10] IN
         /\ TRUE
-        /\ LET _tmp_12 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00005">>)] IN
+        /\ LET _tmp_12 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00005_test_loop_condition">>)] IN
           /\ _globalsScratch' = _tmp_11
           /\ _pc' = _tmp_12
           /\ UNCHANGED _actor
           /\ UNCHANGED _frames
           /\ UNCHANGED _ret
           /\ UNCHANGED x
-_line_00005_1(self) ==
+_main_line00005_exit_loop(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00005_1")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00005_exit_loop")
   /\ (_actor = self)
-  /\ LET _tmp_13 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_line_00008">>)] IN
+  /\ LET _tmp_13 == [_pc EXCEPT ![self] = (SubSeq(_pc[self], 1, (Len(_pc[self]) - 1)) \o <<"_main_line00008_assert">>)] IN
     /\ _pc' = _tmp_13
     /\ UNCHANGED _actor
     /\ UNCHANGED _frames
     /\ UNCHANGED _globalsScratch
     /\ UNCHANGED _ret
     /\ UNCHANGED x
-_line_00008(self) ==
+_main_line00008_assert(self) ==
   /\ (Len(_pc[self]) > 0)
-  /\ (_pc[self][Len(_pc[self])] = "_line_00008")
+  /\ (_pc[self][Len(_pc[self])] = "_main_line00008_assert")
   /\ (_actor = self)
   /\ LET _tmp_14 == [_frames EXCEPT ![self] = SubSeq(_frames[self], 1, (Len(_frames[self]) - 1))] IN
     /\ LET _tmp_15 == [_pc EXCEPT ![self] = SubSeq(_pc[self], 1, (Len(_pc[self]) - 1))] IN
@@ -100,15 +100,15 @@ Next ==
   \E _pid \in UNION {main_calls}:
     \/ _halt(_pid)
     \/ _begin_main(_pid)
-    \/ _line_00005(_pid)
-    \/ _line_00006(_pid)
-    \/ _line_00005_1(_pid)
-    \/ _line_00008(_pid)
+    \/ _main_line00005_test_loop_condition(_pid)
+    \/ _main_line00006_pick(_pid)
+    \/ _main_line00005_exit_loop(_pid)
+    \/ _main_line00008_assert(_pid)
     \/ _halt(_pid)
     \/ _begin_main(_pid)
     \/ _finished
 NoAssertionFailures == \A self \in UNION {main_calls}:
-    /\ (_actor = self) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_line_00008")) => FALSE))
+    /\ (_actor = self) => ((((_pc[self] /= <<>>) /\ (_pc[self][Len(_pc[self])] = "_main_line00008_assert")) => FALSE))
 \* /include While.ezs
 
 =====================
