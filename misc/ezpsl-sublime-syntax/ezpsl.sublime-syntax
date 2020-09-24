@@ -1,0 +1,47 @@
+%YAML 1.2
+---
+
+# This file describes EzPSL syntax for the Sublime Text editor.  To install it,
+# copy or link the folder containing this file to your Sublime Text packages
+# folder.
+
+name: EzPSL
+file_extensions: [ezs]
+scope: source.ezpsl
+
+variables:
+  ident:       '[a-zA-Z][a-zA-Z0-9_]*'
+
+contexts:
+  main:
+    - include: comments
+    - match: '"(\\.|[^"])*"'
+      scope: string.quoted.double.ezpsl
+    - match: \b(pick|if|else|while|either|or|skip|yield|await|assert|return)\b
+      scope: keyword.control.ezpsl
+    - match: \b(call)\s+(\w+)\b
+      captures:
+        1: keyword.control.ezpsl
+        2: variable.function.ezpsl
+    - match: \@entry\b
+      scope: variable.annotation.ezpsl
+    - match: \\\w+
+      scope: keyword.operator.ezpsl
+    - match: (/\\|\\/|\|->|>=|<=|=>|\+|-|\*|=|/=|>|<|:=|:|\\|~|\b(CHOOSE|IF|THEN|ELSE)\b)
+      scope: keyword.operator.ezpsl
+    - match: \b\d+\b
+      scope: constant.numeric.ezpsl
+    - match: \b(TRUE|FALSE|self)\b
+      scope: constant.language.ezpsl
+    - match: \b(proc)\s+({{ident}})\b
+      captures:
+        1: keyword.control.ezpsl
+        2: entity.name.function
+    - match: \b(var)\s+({{ident}})\b
+      captures:
+        1: keyword.control.ezpsl
+        2: entity.name.variable
+
+  comments:
+    - match: \\\*.*\n
+      scope: comment.ezpsl
