@@ -34,12 +34,14 @@ jobs:
           key: ${{ runner.os }}-deps
 
       - name: Install prerequisites
-        run: |
-          ./misc/install-deps-linux-x64.sh
-          export PATH=$HOME/.local/bin:$PATH
+        run: ./misc/install-deps-linux-x64.sh
 
       - name: Compile Haskell dependencies
-        run: stack --no-terminal test --only-dependencies
+        run: |
+          export PATH=$HOME/.local/bin:$PATH
+          stack --no-terminal test --only-dependencies
 
       - name: Compile and test
-        run: stack --no-terminal test
+        run: |
+          export PATH=$HOME/.local/bin:$PATH
+          stack --no-terminal test
