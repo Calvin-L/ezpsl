@@ -1,10 +1,13 @@
 {
 module Language.EzPSL.Parse (parseModule, parseExpression) where
 
+import qualified Data.Map as M
+
 import Data.Annotated (getAnnotation)
 import Data.SourceLocation (SourceLocation, line, column)
 import Language.EzPSL.Syntax
 import qualified Language.EzPSL.Lex as Lex
+import Misc (join)
 }
 
 %name doParseModule Program
@@ -226,9 +229,9 @@ Annotations :: { [Annotation] }
   | Annotation Annotations { $1 : $2 }
 
 Annotation :: { Annotation }
-  : '@' Var {% case fst $2 of {
-    "entry" -> return EntryPoint;
-    a -> reportError (snd $2) $ "Illegal annotation " ++ show a ++ "; the only legal choice is \"@entry\"" } }
+  : '@' Var {% case M.lookup (fst $2) annotationsByName of {
+    Just a -> return a;
+    Nothing -> reportError (snd $2) $ "Illegal annotation " ++ show (fst $2) ++ "; all supported annotations: " ++ join ", " ['@' : a | a <- M.keys annotationsByName] } }
 
 Params :: { [Id] }
   : { [] }
@@ -283,6 +286,10 @@ ElseClauses :: { Stm SourceLocation }
   | 'else' 'if' '(' Exp ')' Block ElseClauses { If (tokenLocation $2) $4 $6 $7 }
 
 {
+
+annotationsByName :: M.Map String Annotation
+annotationsByName = M.fromList [
+  ("entry", EntryPoint)]
 
 tokenLocation :: (Lex.Token, SourceLocation) -> SourceLocation
 tokenLocation = snd
