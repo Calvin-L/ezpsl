@@ -1,6 +1,6 @@
 # EzPSL
 
-[![Build Status](https://api.travis-ci.org/Calvin-L/ezpsl.svg?branch=master)](https://travis-ci.org/Calvin-L/ezpsl)
+[![Build Status](https://github.com/Calvin-L/ezpsl/workflows/Tests/badge.svg)](https://github.com/Calvin-L/ezpsl/actions)
 
 The easy parallel algorithm specification language.
 
