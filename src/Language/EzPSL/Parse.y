@@ -31,6 +31,7 @@ import qualified Language.EzPSL.Lex as Lex
     '<='          { (Lex.Le, _) }
     '>'           { (Lex.Gt, _) }
     '>='          { (Lex.Ge, _) }
+    '=='          { (Lex.EqEq, _) }
     '+'           { (Lex.Plus, _) }
     '-'           { (Lex.Minus, _) }
     '*'           { (Lex.Times, _) }
@@ -71,6 +72,8 @@ import qualified Language.EzPSL.Lex as Lex
     'IF'          { (Lex.IF, _) }
     'THEN'        { (Lex.THEN, _) }
     'ELSE'        { (Lex.ELSE, _) }
+    'LET'         { (Lex.LET, _) }
+    'IN'          { (Lex.IN, _) }
 
     'var'         { (Lex.Var, _) }
     'proc'        { (Lex.Proc, _) }
@@ -87,7 +90,7 @@ import qualified Language.EzPSL.Lex as Lex
     'call'        { (Lex.Call, _) }
     'return'      { (Lex.Return, _) }
 
-%left ':' '<-'
+%left ':' '<-' 'IN'
 %left '\\E' '\\A' ','
 %left 'THEN' 'ELSE'
 %right '=>'
@@ -173,6 +176,7 @@ Exp :: { Exp SourceLocation }
   | '\\E'    Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Exists (fst $2) $4 $6 }
   | '\\A'    Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Forall (fst $2) $4 $6 }
   | 'CHOOSE' Var '\\in' Exp ':' Exp  { EQuant (tokenLocation $1) Choose (fst $2) $4 $6 }
+  | 'LET' Var '==' Exp 'IN' Exp      { EQuant (tokenLocation $1) LetIn  (fst $2) $4 $6 }
   | 'IF' Exp 'THEN' Exp 'ELSE' Exp   { ECond (tokenLocation $1) $2 $4 $6 }
   | '(' Exp ')'                      { $2 }
 

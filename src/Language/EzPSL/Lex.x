@@ -30,6 +30,7 @@ tokens :-
        \<\-                            { justToken LtDash }
        \=\>                            { justToken LeftArrow }
        \:\=                            { justToken ColonEquals }
+       \=\=                            { justToken EqEq }
        \=                              { justToken Eq }
        \/\=                            { justToken Ne }
        \<\=                            { justToken Le }
@@ -69,6 +70,8 @@ tokens :-
        IF                              { justToken IF }
        THEN                            { justToken THEN }
        ELSE                            { justToken ELSE }
+       LET                             { justToken LET }
+       IN                              { justToken IN }
 
        var                             { justToken Var }
        proc                            { justToken Proc }
@@ -94,7 +97,7 @@ data Token
   | Integer Integer
   | String String
   -- Operators
-  | Eq | Ne | Lt | Le | Gt | Ge
+  | Eq | Ne | Lt | Le | Gt | Ge | EqEq
   | Tilde | Wedge | Vee | LeftArrow
   | Plus | Minus | Times | Divide | Percent | Carat
   | ColonEquals | ColonGt | AtAt
@@ -111,6 +114,7 @@ data Token
   | Self
   | Domain | Union | Subset
   | IF | THEN | ELSE
+  | LET | IN
   | Choose
   | Var | Proc
   | Skip

@@ -240,14 +240,15 @@ exp2tla env (EMkFunc _ arg domain range) = do
   domain' <- exp2tla env domain
   range' <- exp2tla (M.insert arg arg env) range
   return $ "[" ++ arg ++ " \\in " ++ domain' ++ " |-> " ++ range' ++ "]"
-exp2tla env (EQuant _ q arg set predicate) = do
-  let {q' = case q of
-    Exists -> "\\E"
-    Forall -> "\\A"
-    Choose -> "CHOOSE"}
-  set' <- exp2tla env set
-  predicate' <- exp2tla (M.insert arg arg env) predicate
-  return $ "(" ++ q' ++ " " ++ arg ++ " \\in " ++ set' ++ ": " ++ predicate' ++ ")"
+exp2tla env (EQuant _ q arg val body) = do
+  let {(q', sep1, sep2) = case q of
+    Exists -> ("\\E ",    " \\in ", ": ")
+    Forall -> ("\\A ",    " \\in ", ": ")
+    Choose -> ("CHOOSE ", " \\in ", ": ")
+    LetIn  -> ("LET ",    " == ",   " IN ")}
+  val' <- exp2tla env val
+  body' <- exp2tla (M.insert arg arg env) body
+  return $ "(" ++ concat [q', arg, sep1, val', sep2, body'] ++ ")"
 
 data SimpleInstr a
   = SimpleAwait (Exp a)

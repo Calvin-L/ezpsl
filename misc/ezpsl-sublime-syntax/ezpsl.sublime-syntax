@@ -27,7 +27,7 @@ contexts:
       scope: variable.annotation.ezpsl
     - match: \\\w+
       scope: keyword.operator.ezpsl
-    - match: (/\\|\\/|\|->|>=|<=|=>|\+|-|\*|=|/=|>|<|:=|:|\\|~|\b(CHOOSE|IF|THEN|ELSE)\b)
+    - match: (/\\|\\/|\|->|>=|<=|=>|\+|-|\*|=|/=|>|<|:=|:|\\|~|\b(CHOOSE|IF|THEN|ELSE|LET|IN)\b)
       scope: keyword.operator.ezpsl
     - match: \b\d+\b
       scope: constant.numeric.ezpsl

@@ -28,7 +28,7 @@ data BinaryOp
   deriving (Eq, Ord, Show)
 
 data Quantifier
-  = Forall | Exists | Choose
+  = Forall | Exists | Choose | LetIn
   deriving (Eq, Ord, Show)
 
 data Exp a

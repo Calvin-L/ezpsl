@@ -1,0 +1,6 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    assert (LET a == 1 IN a + a * 2) = 3;
+}
