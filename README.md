@@ -77,8 +77,15 @@ set using `\in`.
 
 Procedures may be listed in any order.
 
-The `@entry` flag indicates that a procedure is an "entry point", where threads
-may start execution.  There must be one or more `@entry` procedures.
+Each procedure may have zero or more annotations.  Annotations may be listed in
+any order.
+
+ - The `@entry` annotation indicates that a procedure is an "entry point",
+   where threads may start execution.  There must be one or more `@entry`
+   procedures.
+ - The `@can_restart` annotation indicates that a process can crash and restart
+   at any `yield` or `await` point, or after terminating.  This annotation has
+   no effect unless the procedure is also marked with `@entry`.
 
 Expressions: a subset of TLA+ including integers and records.  Additionally,
 the special constant `self` refers to the current thread ID.  EzPSL also has a

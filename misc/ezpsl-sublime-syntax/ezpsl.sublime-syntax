@@ -23,7 +23,7 @@ contexts:
       captures:
         1: keyword.control.ezpsl
         2: variable.function.ezpsl
-    - match: \@entry\b
+    - match: \@(entry|can_restart)\b
       scope: variable.annotation.ezpsl
     - match: \\\w+
       scope: keyword.operator.ezpsl

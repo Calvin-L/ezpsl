@@ -19,7 +19,9 @@ ezpsl2tla :: (MonadFail m) => Module SourceLocation -> m TLACode
 ezpsl2tla m@(Module _ vars procs) = do
   let env = mkEnv m
   let entryProcedures = sortOn procedureName $ findEntryProcedures procs
-  let pidSets = [procedureName p ++ "_calls" | p <- entryProcedures]
+  let restartableProcedures = [p | p <- entryProcedures, CanRestart `elem` (procedureAnnotations p)]
+  let pidSetName proc = procedureName proc ++ "_calls"
+  let pidSets = [pidSetName p | p <- entryProcedures]
   case entryProcedures of
     [] -> fail "The program contains no entry points.  Annotate at least one procedure with \"@entry\"."
     _ -> do
@@ -29,7 +31,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         let (transitionSets, asserts, labels) = unzip3 compiled
         let procedureEntryLabels = M.fromList [(procedureName p, entryPoint) | (p, entryPoint) <- zip procs labels]
         let procForId procName = fromJust $ M.lookup procName procedureEntryLabels
-        let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let pEntry = fromJust $ M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets
+        let allTransitions = haltTransition env : [beginTransition env p pset pEntry | (pset, p) <- zip pidSets entryProcedures, let pEntry = fromJust $ M.lookup (procedureName p) procedureEntryLabels] ++ concatMap (\tn -> tn procForId) transitionSets ++ [restartTransition p (pidSetName p) | p <- restartableProcedures]
         convertedTransitions <- mapM (convertTransition env) allTransitions
         return (allTransitions, convertedTransitions, concat asserts)
       let allVars = pcVar : framesVar : globalsScratchVar : retVar : actorVar : [variableBeingDeclared decl | decl <- vars]
@@ -57,6 +59,7 @@ ezpsl2tla m@(Module _ vars procs) = do
         ++ ["    \\/ " ++ name ++ "(_pid)" | (name, _) <- allTransitions]
         ++ ["    \\/ _halt(_pid)"]
         ++ ["    \\/ _begin_" ++ procedureName proc ++ "(_pid)" | proc <- entryProcedures]
+        ++ ["    \\/ _restart_" ++ procedureName proc ++ "(_pid)" | proc <- restartableProcedures]
         ++ ["    \\/ _finished"]
         ++ case assertionConditions of
           [] -> ["NoAssertionFailures == TRUE"]
@@ -89,6 +92,13 @@ haltTransition kenv = ("_halt", [
   SimpleAssignDet retVar $ EExcept noLocation (EVar noLocation retVar) (EThreadID noLocation) (EVar noLocation undefinedConstant),
   SimpleAssignDet framesVar $ EExcept noLocation (EVar noLocation framesVar) (EThreadID noLocation) (EMkRecord noLocation [])]
   ++ exportGlobals noLocation kenv)
+
+restartTransition :: Procedure SourceLocation -> Id -> NamedTransition SourceLocation
+restartTransition p pset = ("_restart_" ++ procedureName p, [
+  SimpleAwait $ EBinaryOp noLocation Eq (EVar noLocation actorVar) (EVar noLocation undefinedConstant),
+  SimpleAwait $ EBinaryOp noLocation In (EThreadID noLocation) (EVar noLocation pset),
+  SimpleAssignDet framesVar $ EExcept noLocation (EVar noLocation framesVar) (EThreadID noLocation) (EMkTuple noLocation [EMkRecord noLocation []]),
+  SimpleAssignDet pcVar $ EExcept noLocation (EVar noLocation pcVar) (EThreadID noLocation) (EMkTuple noLocation [EStr noLocation initialPc])])
 
 findEntryProcedures :: [Procedure a] -> [Procedure a]
 findEntryProcedures = filter isEntryPoint

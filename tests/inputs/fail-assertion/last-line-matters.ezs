@@ -1,0 +1,15 @@
+\* CFG CONSTANT zzz_calls = {A}
+\* CFG CONSTANT check_calls = {B}
+
+var chosenValue := 0;
+
+@entry
+proc check() {
+    assert chosenValue /= 2;
+}
+
+@entry
+proc zzz() {
+    chosenValue := 2;
+    yield;
+}

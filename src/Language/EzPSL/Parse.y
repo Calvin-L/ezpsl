@@ -289,7 +289,8 @@ ElseClauses :: { Stm SourceLocation }
 
 annotationsByName :: M.Map String Annotation
 annotationsByName = M.fromList [
-  ("entry", EntryPoint)]
+  ("entry", EntryPoint),
+  ("can_restart", CanRestart)]
 
 tokenLocation :: (Lex.Token, SourceLocation) -> SourceLocation
 tokenLocation = snd

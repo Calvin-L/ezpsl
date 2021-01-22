@@ -81,6 +81,7 @@ data Stm a
 
 data Annotation
   = EntryPoint
+  | CanRestart
   deriving (Eq, Ord, Show)
 
 data Procedure a

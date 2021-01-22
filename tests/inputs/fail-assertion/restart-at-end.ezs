@@ -1,0 +1,10 @@
+\* CFG CONSTANT main_calls = {A}
+
+var x := 1;
+
+@entry
+@can_restart
+proc main() {
+    assert x = 1;
+    x := 2;
+}
