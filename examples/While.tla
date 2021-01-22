@@ -91,7 +91,6 @@ _main_line00008_assert(self) ==
       /\ UNCHANGED _globalsScratch
       /\ UNCHANGED _ret
       /\ UNCHANGED x
-  /\ UNCHANGED x
 \* `_finished` prevents TLC from reporting deadlock when all processes finish normally
 _finished ==
   /\ \A self \in UNION {main_calls}: _pc[self] = <<>>

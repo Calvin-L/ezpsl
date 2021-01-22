@@ -49,7 +49,6 @@ ezpsl2tla m@(Module _ vars procs) = do
         ++ ["  /\\ " ++ actorVar ++ " = " ++ undefinedConstant]
         ++ ["  /\\ " ++ initExp | initExp <- initialValues]
         ++ compiledTransitions
-        ++ ["  /\\ UNCHANGED " ++ variableBeingDeclared decl | decl <- vars]
         ++ ["\\* `_finished` prevents TLC from reporting deadlock when all processes finish normally"]
         ++ ["_finished ==",
             "  /\\ \\A " ++ selfConstant ++ " \\in UNION {" ++ join ", " pidSets ++ "}: " ++ pcVar ++ "[" ++ selfConstant ++ "] = <<>>",

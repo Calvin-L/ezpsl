@@ -134,8 +134,6 @@ _increment_line00006_exit_loop(self) ==
       /\ UNCHANGED _ret
       /\ UNCHANGED x
       /\ UNCHANGED y
-  /\ UNCHANGED x
-  /\ UNCHANGED y
 \* `_finished` prevents TLC from reporting deadlock when all processes finish normally
 _finished ==
   /\ \A self \in UNION {increment_calls}: _pc[self] = <<>>

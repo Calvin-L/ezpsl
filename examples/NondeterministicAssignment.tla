@@ -88,7 +88,6 @@ _main_line00007_pick(self) ==
             /\ UNCHANGED _actor
             /\ UNCHANGED _ret
             /\ UNCHANGED map
-  /\ UNCHANGED map
 \* `_finished` prevents TLC from reporting deadlock when all processes finish normally
 _finished ==
   /\ \A self \in UNION {main_calls}: _pc[self] = <<>>

@@ -457,7 +457,6 @@ _CAS_line00038_return(self) ==
         /\ UNCHANGED _actor
         /\ UNCHANGED _globalsScratch
         /\ UNCHANGED head
-  /\ UNCHANGED head
 \* `_finished` prevents TLC from reporting deadlock when all processes finish normally
 _finished ==
   /\ \A self \in UNION {dequeue_calls, enqueue_calls}: _pc[self] = <<>>
