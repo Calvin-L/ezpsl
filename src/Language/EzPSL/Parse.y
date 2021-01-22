@@ -297,6 +297,7 @@ reportError pos msg = do
   Lex.alexError $ "Parse error at line " ++ (show $ line pos) ++ ", column " ++ (show $ column pos) ++ ": " ++ msg
 
 parseError :: (Lex.Token, SourceLocation) -> Lex.Alex a
+parseError (Lex.EqEq, pos) = reportError pos $ "unexpected == (reminder: use = for equality comparison, not ==)"
 parseError (token, pos) = reportError pos $ "unexpected " ++ show token
 
 parseModule :: (MonadFail m) => String -> m (Module SourceLocation)
