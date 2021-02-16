@@ -124,7 +124,7 @@ VarDecls :: { [VarDecl SourceLocation] }
 
 VarDecl :: { VarDecl SourceLocation }
   : 'var' Var ':=' Exp ';' { VarDecl (tokenLocation $1) (fst $2) $4 }
-  | 'var' Var '\\in' Exp ';' { VarDeclNondeterministic (tokenLocation $1) (fst $2) $4 }
+  | 'var' Var NondeterministicAssignOperator Exp ';' { VarDeclNondeterministic (tokenLocation $1) (fst $2) $3 $4 }
 
 Var :: { (Id, SourceLocation) }
   : var { case $1 of { (Lex.Identifier x, loc) -> (x, loc); _ -> error "impossible" } }
@@ -241,6 +241,10 @@ Params1 :: { [Id] }
   : Var             { [fst $1] }
   | Var ',' Params1 { fst $1 : $3 }
 
+NondeterministicAssignOperator :: { NondeterministicAssignOperator }
+  : '\\in'       { MemberOf }
+  | '\\subseteq' { SubsetOf }
+
 LValue :: { LValue SourceLocation }
   : Var                { LVar (snd $1) (fst $1) }
   | LValue '[' Exp ']' { LIndex (tokenLocation $2) $1 $3 }
@@ -260,11 +264,14 @@ BasicStm :: { Stm SourceLocation }
   | 'yield' ';'                                { Yield (tokenLocation $1) }
   | 'call' Var Args ';'                        { Call (tokenLocation $1) (fst $2) $3 }
   | LValue ':=' 'call' Var Args ';'            { CallAndSaveReturnValue (tokenLocation $2) $1 (fst $4) $5 }
-  | 'pick' LValue '\\in' Exp ';'               { NondeterministicAssign (tokenLocation $1) $2 $4 (EVar (tokenLocation $1) "TRUE") }
-  | 'pick' LValue '\\in' Exp ':' Exp ';'       { NondeterministicAssign (tokenLocation $1) $2 $4 $6 }
+  | 'pick' LValue NondeterministicAssignOperator Exp MaybePredicate ';' { NondeterministicAssign (tokenLocation $1) $2 $3 $4 $5 }
   | 'return' ';'                               { Return (tokenLocation $1) Nothing }
   | 'return' Exp ';'                           { Return (tokenLocation $1) (Just $2) }
   | 'while' '(' Exp ')' Block                  { While (tokenLocation $1) $3 $5 }
+
+MaybePredicate :: { Exp SourceLocation }
+  :         {% withPosition (\loc -> EBool loc True) }
+  | ':' Exp {  $2 }
 
 MaybeStm :: { Stm SourceLocation }
   :     {% withPosition Skip }

@@ -72,8 +72,8 @@ Comments begin with `\*` and are completely ignored by the tool.
 All global variables must be listed before any procedures, and local variables
 within a procedure must be declared first, before any statements in the
 procedure.  Variables must be initialized.  They can either be initialized with
-an exact value using `:=` or nondeterministically as an arbitrary element of a
-set using `\in`.
+an exact value using `:=` or nondeterministically (as an arbitrary element of a
+set using `\in` or as an arbitrary subset of a set using `\subseteq`).
 
 Procedures may be listed in any order.
 
@@ -103,6 +103,8 @@ Statements:
  - `pick x \in set : predicate;` - nondeterministic choice.  You may omit the
    `: predicate` part, in which case the predicate defaults to `TRUE`.  If the
    set is empty or if no element matches the predicate, then the process hangs.
+   You can use `\subseteq` instead of `\in` as a shorter way to write
+   `pick x \in SUBSET set;`.
  - `if (e) { s } else { s }` - if-then-else
  - `while (e) { s }` - looping
  - `either { s } or { s }` - nondeterministic branching

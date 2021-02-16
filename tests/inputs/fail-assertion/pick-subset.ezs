@@ -1,0 +1,8 @@
+\* CFG CONSTANT main_calls = {A}
+
+@entry
+proc main() {
+    var chosenValue := {};
+    pick chosenValue \subseteq {1, 2, 3};
+    assert chosenValue /= {2, 3};
+}

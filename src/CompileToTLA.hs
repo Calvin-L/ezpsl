@@ -70,9 +70,11 @@ createTLAVariableInitialization :: (Monad m) => VarDecl SourceLocation -> m TLAC
 createTLAVariableInitialization (VarDecl _ v e) = do
   e' <- exp2tla (M.empty) e
   return $ v ++ " = (" ++ e' ++ ")"
-createTLAVariableInitialization (VarDeclNondeterministic _ v e) = do
+createTLAVariableInitialization (VarDeclNondeterministic _ v MemberOf e) = do
   e' <- exp2tla (M.empty) e
   return $ v ++ " \\in (" ++ e' ++ ")"
+createTLAVariableInitialization (VarDeclNondeterministic loc v SubsetOf e) = do
+  createTLAVariableInitialization (VarDeclNondeterministic loc v MemberOf (EUnaryOp loc AllSubsets e))
 
 beginTransition :: KEnv -> Procedure SourceLocation -> Id -> PCLabel -> NamedTransition SourceLocation
 beginTransition kenv p pset entry = ("_begin_" ++ procedureName p, [
@@ -325,11 +327,11 @@ exportGlobals loc kenv =
 
 varDeclAsAssignment :: VarDecl a -> Stm a
 varDeclAsAssignment (VarDecl loc v e) = Assign loc (LVar loc v) e
-varDeclAsAssignment (VarDeclNondeterministic loc v e) = NondeterministicAssign loc (LVar loc v) e (EBool loc True)
+varDeclAsAssignment (VarDeclNondeterministic loc v op e) = NondeterministicAssign loc (LVar loc v) op e (EBool loc True)
 
 variableBeingDeclared :: VarDecl a -> Id
 variableBeingDeclared (VarDecl _ v _) = v
-variableBeingDeclared (VarDeclNondeterministic _ v _) = v
+variableBeingDeclared (VarDeclNondeterministic _ v _ _) = v
 
 -- | Convert a procedure into a CFG, collecting all assertions along the way.
 --   The returned label is the procedure entry point.
@@ -436,14 +438,16 @@ stmToTransitions pname kenv (Either loc stms) = do
     gotoDynamic (EVar loc x)]}
   return (label, unionTransitionSets (mkStatementTransition loc label (const instrs) : incompleteTransitions), concat assertions)
 stmToTransitions pname kenv (Assign loc lval e) = do
-  stmToTransitions pname kenv (NondeterministicAssign loc lval (EMkSet loc [e]) (EBool loc True))
-stmToTransitions pname kenv (NondeterministicAssign loc lval set predicate) = do
+  stmToTransitions pname kenv (NondeterministicAssign loc lval MemberOf (EMkSet loc [e]) (EBool loc True))
+stmToTransitions pname kenv (NondeterministicAssign loc lval MemberOf set predicate) = do
   x <- freshName "_choice"
   label <- labelFor pname loc "pick"
   set' <- fixReads kenv set
   predicate' <- fixReads kenv predicate
   (v, v') <- asSimpleAssignment kenv lval (EVar loc x)
   return (label, mkStatementTransition loc label ([SimpleAssignNonDet x set', SimpleAssignDet v v', SimpleAwait predicate']++), [])
+stmToTransitions pname kenv (NondeterministicAssign loc lval SubsetOf set predicate) = do
+  stmToTransitions pname kenv (NondeterministicAssign loc lval MemberOf (EUnaryOp (getAnnotation set) AllSubsets set) predicate)
 stmToTransitions pname kenv (If loc cond thenBranch elseBranch) = do
   label <- labelFor pname loc "if_branch"
   cond' <- fixReads kenv cond
