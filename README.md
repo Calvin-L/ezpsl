@@ -212,11 +212,6 @@ There are a few ways in which EzPSL is better than PlusCal:
  - **EzPSL allows return values from procedures.**  While PlusCal can model
    return values, it is awkward to do so.  EzPSL includes them as a first-class
    primitive.  This can make some programs shorter and easier to read.
- - **EzPSL allows TLC to show an error trace when an `assert` fails.**  PlusCal
-   assertions cause TLC to crash immediately.  The output shows line and column
-   information, but it does not show the trace that led to the assertion
-   failure.  EzPSL converts assertions into the `NoAssertionFailures` invariant
-   so that TLC can show traces when they fail.
 
 There are also ways in which PlusCal is better than EzPSL:
 
