@@ -223,3 +223,6 @@ There are also ways in which PlusCal is better than EzPSL:
  - **EzPSL is not built into the TLA+ toolbox.**  To use EzPSL you will need to
    use this command-line tool, which can be awkward and is likely to slow down
    your workflow.
+ - **EzPSL has no way to specify fairness.**  As a result, EzPSL is not
+   suitable for specifying or checking liveness properties.  PlusCal supports
+   fairness annotations on processes.
