@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad (when)
 import Data.Maybe (fromMaybe)
 import Data.List (findIndex, isPrefixOf)
 import System.Environment (getArgs)
@@ -13,6 +14,7 @@ import Constants (startOfFileInclude, endOfFileInclude)
 
 
 data CommandLineOpts = CommandLineOpts {
+  showHelp :: Bool,
   inputFile :: Maybe FilePath,
   outputFile :: Maybe FilePath}
 
@@ -20,10 +22,13 @@ parseCommandLineOpts :: [String] -> Either String CommandLineOpts
 parseCommandLineOpts = loop defaultOpts
   where
     defaultOpts = CommandLineOpts {
+      showHelp = False,
       inputFile = Nothing,
       outputFile = Nothing}
 
     loop opts [] = Right $ opts
+    loop opts ("-h"     : rest) = loop (opts { showHelp = True }) rest
+    loop opts ("--help" : rest) = loop (opts { showHelp = True }) rest
     loop opts [f] = Right $ opts { inputFile = Just f }
     loop opts ["--", f] = Right $ opts { inputFile = Just f }
     loop opts ("-o" : out : rest) = loop (opts { outputFile = Just out }) rest
@@ -63,15 +68,28 @@ legalExtensions = ["tla", "ezs"]
 badUsage :: String -> String
 badUsage message =
   "Incorrect usage: " ++ message ++ ".\n"
-  ++ "Usage: ezpsl [-o OUT] FILE\n"
+  ++ shortUsage ++ "\n"
   ++ "The given FILE must be a .tla or .ezs file."
+
+shortUsage :: String
+shortUsage = "Usage: ezpsl [-o OUT] FILE"
+
+fullUsage :: String
+fullUsage = join "\n" [
+  shortUsage,
+  "Options:",
+  "  -h,--help    show help and exit without doing anything"]
 
 main :: IO ()
 main = do
   args <- getArgs
   case parseCommandLineOpts args of
     Left err -> die 1 (badUsage err)
-    Right options ->
+    Right options -> do
+
+      when (showHelp options) $ do
+        die 0 fullUsage
+
       case inputFile options of
         Nothing -> die 1 (badUsage "No input file provided")
         Just infile -> do
