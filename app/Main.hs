@@ -66,10 +66,10 @@ legalExtensions :: [String]
 legalExtensions = ["tla", "ezs"]
 
 badUsage :: String -> String
-badUsage message =
-  "Incorrect usage: " ++ message ++ ".\n"
-  ++ shortUsage ++ "\n"
-  ++ "The given FILE must be a .tla or .ezs file."
+badUsage message = join "\n" [
+  "Incorrect usage: " ++ message ++ ".",
+  shortUsage,
+  "The given FILE must be a .tla or .ezs file."]
 
 shortUsage :: String
 shortUsage = "Usage: ezpsl [-o OUT] FILE"
