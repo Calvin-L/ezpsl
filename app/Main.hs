@@ -63,7 +63,7 @@ legalExtensions = ["tla", "ezs"]
 badUsage :: String -> String
 badUsage message =
   "Incorrect usage: " ++ message ++ ".\n"
-  ++ "Usage: ezpsl [-o OUT] FILE"
+  ++ "Usage: ezpsl [-o OUT] FILE\n"
   ++ "The given FILE must be a .tla or .ezs file."
 
 main :: IO ()
