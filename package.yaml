@@ -2,7 +2,7 @@ name:       ezpsl
 version:    0.1
 author:     "Calvin Loncaric"
 maintainer: "c.a.loncaric@gmail.com"
-copyright:  "2020 Calvin Loncaric"
+copyright:  "2020-2022 Calvin Loncaric"
 license:    MIT
 
 # Common dependencies for everything listed here.
