@@ -60,7 +60,7 @@ tokens :-
        \.                              { justToken Period }
        \@                              { justToken At }
        \|\-\>                          { justToken PipeDashGt }
-       \\[$alpha]*                     { makeToken $ \s -> SlashOperator (tail s) }
+       \\[$alpha]*                     { makeToken $ \s -> SlashOperator $ case s of { '\\' : s' -> s'; _ -> "ILLEGAL" } }
 
        self                            { justToken Self }
        DOMAIN                          { justToken Domain }
